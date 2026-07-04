@@ -1,6 +1,6 @@
 # Data files to keep in the public reproducibility branch
 
-Use this folder for the minimal datasets needed to reproduce the validated Q1/Q2 baseline.
+Use this folder (or the repository root data folder) for the *minimal* datasets needed to reproduce the validated Q1/Q2 baseline.
 
 ## Keep
 
@@ -32,4 +32,4 @@ Use this folder for the minimal datasets needed to reproduce the validated Q1/Q2
 - Old figures/texts that claim ranking inversion (TVAE 1st→3rd; Gaussian 2nd→1st).
 - Deprecated scripts replaced by the safe baseline listed in `SAFE_BASELINE_MANIFEST.md`.
 
-Note: raw Excel/CSV data files should be copied from your local environment into the canonical paths above.
+Note: this package includes the validated code and reference figures/reports available in the current working session. The raw Excel/CSV data files should be copied from your local/GitHub datafiles branch into the canonical paths above.

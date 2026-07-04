@@ -1,6 +1,8 @@
 # SAFE GITHUB BASELINE — Q1/Q2 Biosurfactant Synthetic Expansion v3
 
-This repository is intended as the clean starting point before incorporating peer-review orchestration changes.
+Generated: 2026-07-05 00:55:29
+
+This package is intended as the clean starting point before incorporating peer-review orchestration changes.
 
 ## Keep these code files
 
@@ -29,8 +31,8 @@ This repository is intended as the clean starting point before incorporating pee
 
 ## Hard bounds decision
 
-For this manuscript baseline, Biophysical Hard Bounds are not enforced inside the generative model. They are retained as:
-
+For this manuscript baseline, Biophysical Hard Bounds are not enforced inside the generative model.
+They are retained as:
 1. audit-only plausibility checks, and
 2. a future-work extension for constraint-aware sampling/training.
 
@@ -38,8 +40,7 @@ This avoids reprocessing the heavy `expand` engine while preserving the scientif
 
 ## Recommended GitHub cleanup
 
-Keep this repository as the root reference and move older scripts/results to:
-
+Keep this package as the root reference and move older scripts/results to:
 - `archive/`
 - `deprecated/`
 - `old_runs/`
