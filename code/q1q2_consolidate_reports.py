@@ -331,10 +331,10 @@ FIG_SPECS = (
 
 
 def _find_latest_match(root: Path, fname: str) -> Optional[Path]:
-    \"\"\"Recursive search for fname under root; return most recently modified match.
+    """Recursive search for fname under root; return most recently modified match.
 
     Uses case-insensitive filename comparison (helps on mixed-case artifacts).
-    \"\"\"
+    """
     if not root.exists() or not root.is_dir():
         return None
     target = fname.lower()

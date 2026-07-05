@@ -1,0 +1,15 @@
+﻿.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+logs/
+*.log
+OLD/
+old/
+backup/
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
