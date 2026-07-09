@@ -1,29 +1,21 @@
 # Synthetic Expansion of Bench-Scale Experimental Data — Safe Q1/Q2 Baseline v3
 
-> **ATUALIZAÇÃO (2026-07-06, branch `peer-review-revisions-v1`): a interpretação "Core
-> interpretation" abaixo foi produzida por um pipeline com duas falhas metodológicas
-> silenciosas (regularização do RandomForest ausente; TSTR treinado numa subamostra do
-> sintético em vez da expansão completa `n_synthetic`). Após correção (script
-> `code/..._PEERFIX1.py`), a leitura passa a ser: **TVAE é o único gerador com sinal de
-> utilidade não-negativo em ambos os cenários** (mas com valor pontual sensível a
-> seed/hiperparâmetros — ver diagnóstico); Gaussian Copula, CTGAN e TabDDPM não mostram
-> utilidade em nenhuma configuração testada. Ver
-> `peer_review_investigation/DIAGNOSTICO_queda_utilidade_rerun_v4.md` para a investigação
-> completa (isolamento de variáveis, tabela comparativa) antes de citar a interpretação
-> abaixo como válida. Resultados corrigidos em `runs/exp_out_v6_PEERFIX1_doe0pct/` e
-> `runs/exp_out_v6_PEERFIX1_doe1pct/`.**
-
 This repository stores the validated safe baseline for the biosurfactant synthetic data expansion workflow.
 
 The active baseline is documented in `SAFE_BASELINE_MANIFEST.md`. Older/experimental files should remain outside the active workflow or be moved to `archive/`, `deprecated/`, or `old_runs/`.
 
-Core interpretation of the validated baseline **(superseded — see update notice above)**:
-
-- Gaussian Copula showed the most stable utility–privacy balance.
-- TVAE showed strong correlation/fidelity behavior, but higher proximity risk under 1% DOE-noise.
-- CTGAN showed favorable privacy/tail-risk behavior, but weaker utility/fidelity.
-- TabDDPM had the weakest utility and strongest degradation under noise.
-- No validated ranking inversion was observed; the main effect is the magnitude of TSTR and the privacy trade-off.
+**Current validated interpretation (PEERFIX1, branch `peer-review-revisions-v1`):** TVAE is the only
+generator with a non-negative downstream-utility signal in both the baseline and 1% DOE-noise
+sensitivity scenarios (point estimate sensitive to seed/hyperparameters — treated as a central
+finding, not hidden; see `peer_review_investigation/DIAGNOSTICO_queda_utilidade_rerun_v4.md` and
+manuscript Section 3.6). Gaussian Copula, CTGAN, and TabDDPM show no utility in any tested
+configuration. The Domain-Grounded Concordance Index (ICD) does not rank TVAE first — no single
+generator dominates utility, multivariate fidelity, domain concordance, and disclosure risk
+simultaneously. Validated results: `runs/exp_out_v6_PEERFIX1_doe0pct/` and `..._doe1pct/`. An
+earlier, superseded interpretation (produced by a pipeline with two now-corrected methodological
+issues) is kept only in `archive/pre_peerfix1_outputs/README_HISTORICO.md`, for audit history —
+not to be cited as current.
 
 Start with `docs/RUNBOOK_SAFE_BASELINE.md` to reproduce the validated figures and consolidated reports.
+
 
