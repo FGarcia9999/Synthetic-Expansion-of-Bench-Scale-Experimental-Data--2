@@ -13,6 +13,18 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 
+# Portable help guard added for Windows/Linux reproducibility.
+if any(arg in ("-h", "--help") for arg in sys.argv[1:]):
+    print("Portable figure script.")
+    print("Default inputs:")
+    print("  baseline: runs/exp_out_v5_doe0pct_tau010")
+    print("  sensitivity: runs/exp_out_v5_doe1pct_tau010")
+    print("  real data: data/dados.csv")
+    print("  output: outputs/peerfix2/figures_peerfix2")
+    print("Note: this legacy script uses internal defaults; PEERFIX2 final figures are under outputs/peerfix2.")
+    raise SystemExit(0)
+
+
 plt.rcParams.update({
     "font.family": "DejaVu Sans", "font.size": 11,
     "axes.spines.top": False, "axes.spines.right": False,
@@ -23,13 +35,13 @@ GEN_ORDER = ["gaussian_copula", "ctgan", "tvae", "tabddpm"]
 GEN_LABEL = {"gaussian_copula": "Gaussian Copula", "ctgan": "CTGAN", "tvae": "TVAE", "tabddpm": "TabDDPM"}
 GEN_COLOR = {"gaussian_copula": "#4C72B0", "ctgan": "#DD8452", "tvae": "#55A868", "tabddpm": "#C44E52"}
 
-BASE = "/home/claude/final_fix/out_PEERFIX1_baseline"
-SENS = "/home/claude/final_fix/out_PEERFIX1_sensitivity"
-OUT = "/home/claude/figures"
+BASE = "runs/exp_out_v5_doe0pct_tau010"
+SENS = "runs/exp_out_v5_doe1pct_tau010"
+OUT = "outputs/peerfix2/figures_peerfix2"
 FACTORS = ["seawater_vv", "urea_pv", "ammonium_sulfate_pv", "kh2po4_pv"]
 TARGET = "surface_tension_mNm"
 
-real_df = pd.read_csv("/home/claude/icd_work/dados_real.csv")
+real_df = pd.read_csv("data/dados.csv")
 
 # ----------------------------------------------------------------------
 # Figure 6: DCR ECDF (baseline), recomputed directly from CSVs
