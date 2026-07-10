@@ -1,0 +1,10 @@
+﻿037f510 (HEAD -> q1q2-final-submission-polish-v1, tag: checkpoint-peerreview-loocv-icd-v1, tag: checkpoint-peerfix2-package-v1, origin/peer-review-revisions-v1, peer-review-revisions-v1) Add peer-review LOOCV ICD revision package
+bf9642e Corrige bug de imagem, adiciona 4 figuras novas, limpa README, arquiva analises externas
+7dadbc2 Adiciona figuras embutidas, referencias cruzadas no texto e corrige bibliografia orfa
+4832b4c Adiciona Secao 3.6 (sensibilidade do protocolo) ao manuscrito e pacote de submissao
+2471483 Limpeza para revisao: arquiva relatorios/figuras pre-PEERFIX1 e corrige manifesto
+eb34da0 Atualiza README e adiciona manuscrito v3 (numeros PEERFIX1 + ICD recalculado)
+8826b14 PEERFIX1: corrige regularizacao do RF e treino do TSTR na expansao sintetica completa
+9dfabb4 (tag: checkpoint-q1q2-clean-rerun-v4, origin/rerun-clean-q1q2-v4, origin/archive/q1q2-clean-rerun-v4, rerun-clean-q1q2-v4, recovery-from-checkpoint, archive/q1q2-clean-rerun-v4) Add clean Q1Q2 rerun outputs and reproducible scripts
+52063c2 (origin/main, origin/HEAD, main) Add baseline output discussion file
+4d6e8f6 Add safe Q1Q2 biosurfactant baseline v3 files
