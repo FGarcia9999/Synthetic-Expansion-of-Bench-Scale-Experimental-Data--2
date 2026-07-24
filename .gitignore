@@ -1,15 +1,24 @@
-﻿.venv/
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.ipynb_checkpoints/
-logs/
-*.log
-OLD/
-old/
-backup/
-*.tmp
-*.bak
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Local runs and bulky intermediate outputs
+runs/
+old_runs/
+archive/
+deprecated/
+peer_review_investigation/
+SAFE_BASELINE_*
+
+# Operating-system/editor noise
 .DS_Store
 Thumbs.db
+~$*
+*.tmp
+
+# Submission exports generated locally but not meant for source control
+*.zip

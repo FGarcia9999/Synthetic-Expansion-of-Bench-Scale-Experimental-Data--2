@@ -1,6 +1,0 @@
-﻿checkpoint-before-portability-fix-v1
-checkpoint-peerfix2-package-v1
-checkpoint-peerreview-loocv-icd-v1
-checkpoint-portable-figures-q1q2-v1
-checkpoint-portable-figures-q1q2-v2
-checkpoint-q1q2-clean-rerun-v4

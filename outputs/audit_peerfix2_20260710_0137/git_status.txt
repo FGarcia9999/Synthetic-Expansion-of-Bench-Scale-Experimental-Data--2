@@ -1,6 +1,0 @@
-﻿On branch q1q2-final-submission-polish-v1
-Untracked files:
-  (use "git add <file>..." to include in what will be committed)
-	outputs/audit_peerfix2_20260710_0137/
-
-nothing added to commit but untracked files present (use "git add" to track)

@@ -1,0 +1,9 @@
+scenario,generator,n,ICD_mean,ICD_boot_ci95_low,ICD_boot_ci95_high,mean_S,mean_M,mean_D,spurious_rate
+baseline_0pct,tvae,10,0.480,0.399,0.561,0.90,0.00,0.60,0.200
+baseline_0pct,gaussian_copula,10,0.333,0.333,0.333,0.50,0.00,0.50,0.000
+baseline_0pct,tabddpm,10,0.332,0.207,0.461,0.70,0.05,0.30,0.175
+baseline_0pct,ctgan,10,0.245,0.196,0.295,0.60,0.00,0.15,0.050
+sensitivity_1pct,tvae,10,0.536,0.465,0.607,0.95,0.00,0.70,0.138
+sensitivity_1pct,gaussian_copula,10,0.333,0.333,0.333,0.50,0.00,0.50,0.000
+sensitivity_1pct,tabddpm,10,0.273,0.178,0.362,0.65,0.10,0.10,0.100
+sensitivity_1pct,ctgan,10,0.158,0.108,0.207,0.50,0.00,0.00,0.087

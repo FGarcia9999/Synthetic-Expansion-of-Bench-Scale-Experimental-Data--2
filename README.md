@@ -1,6 +1,6 @@
 # Synthetic Expansion of Bench-Scale Experimental Data on Biosurfactant Production
 
-This repository supports a manuscript prepared for **Computers & Chemical Engineering**:
+This branch is the clean **PEERFIX2 / CCE submission-facing branch** for the manuscript:
 
 **Synthetic Expansion of Bench-Scale Experimental Data on Biosurfactant Production Using Tabular Generative Models: Trade-offs Between Fidelity, Utility, and Domain-Grounded Validation**
 
@@ -22,6 +22,14 @@ No generator dominates all validation objectives. Gaussian Copula provides the m
 The central conclusion is that statistical fidelity, downstream utility, gain over a real-only baseline, proximity risk, and domain-grounded scientific validity must be evaluated separately.
 
 Synthetic expansion is treated here as an auditable complement to bench-scale experimental design, not as a replacement for physical experimental replication.
+
+## Branch status
+
+Historical PEERFIX1 and pre-PEERFIX2 materials were intentionally removed from this clean branch to avoid reviewer confusion. A complete backup of the previous repository state was preserved in the branch:
+
+`backup/pre-cce-v26-cleanup-peerfix1`
+
+This branch should contain only PEERFIX2/CCE-facing metadata, final data descriptors, final result tables, reproducibility notes, and release/Zenodo metadata.
 
 ## Citation
 
@@ -46,3 +54,7 @@ Zenodo metadata are provided in `.zenodo.json`.
 ## Reproducibility note
 
 The final utility results are based on repeated k-fold fold-refit validation. In each fold, synthetic data are generated only from the real training subset and evaluated on held-out real observations. This avoids train-test leakage and supports auditable comparison of utility, domain concordance, and proximity risk.
+
+## Release note
+
+For a single GitHub/Zenodo release, create a GitHub release from this clean branch after the final manuscript, figures, supplementary tables, and code package are uploaded. Zenodo should archive that release as one record.
