@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite the associated manuscript and archived release."
+title: "Synthetic Expansion of Bench-Scale Experimental Data on Biosurfactant Production Using Tabular Generative Models: Trade-offs Between Fidelity, Utility, and Domain-Grounded Validation"
+type: software
+authors:
+  - family-names: "Garcia"
+    given-names: "Fernando Antonio Marçal"
+    orcid: "https://orcid.org/0000-0003-0461-0431"
+  - family-names: "Souza"
+    given-names: "Fabiana América Silva Dantas de"
+    orcid: "https://orcid.org/0009-0008-2186-8649"
+  - family-names: "Campos-Takaki"
+    given-names: "Galba Maria"
+    orcid: "https://orcid.org/0000-0002-0519-0849"
+  - family-names: "Albuquerque"
+    given-names: "Clarissa Daisy da Costa"
+    orcid: "https://orcid.org/0000-0002-5492-2559"
+abstract: "This repository supports a Computers & Chemical Engineering manuscript on PEERFIX2 no-leakage validation of tabular synthetic-data expansion for a small bench-scale biosurfactant DOE dataset. It includes code, data descriptors, validation outputs, figures, and supplementary material for utility, proximity-risk, and domain-grounded concordance analyses."
+keywords:
+  - biosurfactant
+  - synthetic data
+  - tabular generative models
+  - PEERFIX2
+  - domain-grounded concordance
+  - design of experiments
+  - small data
+license: MIT
+repository-code: "https://github.com/FGarcia9999/Synthetic-Expansion-of-Bench-Scale-Experimental-Data--2"
+date-released: "2026-07-20"
