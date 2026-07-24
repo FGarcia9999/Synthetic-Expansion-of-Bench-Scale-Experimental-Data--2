@@ -1,21 +1,48 @@
-# Synthetic Expansion of Bench-Scale Experimental Data — Safe Q1/Q2 Baseline v3
+# Synthetic Expansion of Bench-Scale Experimental Data on Biosurfactant Production
 
-This repository stores the validated safe baseline for the biosurfactant synthetic data expansion workflow.
+This repository supports a manuscript prepared for **Computers & Chemical Engineering**:
 
-The active baseline is documented in `SAFE_BASELINE_MANIFEST.md`. Older/experimental files should remain outside the active workflow or be moved to `archive/`, `deprecated/`, or `old_runs/`.
+**Synthetic Expansion of Bench-Scale Experimental Data on Biosurfactant Production Using Tabular Generative Models: Trade-offs Between Fidelity, Utility, and Domain-Grounded Validation**
 
-**Current validated interpretation (PEERFIX1, branch `peer-review-revisions-v1`):** TVAE is the only
-generator with a non-negative downstream-utility signal in both the baseline and 1% DOE-noise
-sensitivity scenarios (point estimate sensitive to seed/hyperparameters — treated as a central
-finding, not hidden; see `peer_review_investigation/DIAGNOSTICO_queda_utilidade_rerun_v4.md` and
-manuscript Section 3.6). Gaussian Copula, CTGAN, and TabDDPM show no utility in any tested
-configuration. The Domain-Grounded Concordance Index (ICD) does not rank TVAE first — no single
-generator dominates utility, multivariate fidelity, domain concordance, and disclosure risk
-simultaneously. Validated results: `runs/exp_out_v6_PEERFIX1_doe0pct/` and `..._doe1pct/`. An
-earlier, superseded interpretation (produced by a pipeline with two now-corrected methodological
-issues) is kept only in `archive/pre_peerfix1_outputs/README_HISTORICO.md`, for audit history —
-not to be cited as current.
+## Scope
 
-Start with `docs/RUNBOOK_SAFE_BASELINE.md` to reproduce the validated figures and consolidated reports.
+The study evaluates whether tabular synthetic-data expansion can complement a very small bench-scale Design-of-Experiments dataset (`n = 20`) on bioemulsifier/biosurfactant production by *Candida lipolytica* UCP 988, using surface tension as the primary response.
 
+The final validation workflow is **PEERFIX2**, a no-leakage protocol combining:
 
+- repeated k-fold fold-refit utility validation;
+- TSTR, TRTR, and same-model Delta;
+- proximity-risk diagnostics based on Distance to Closest Record (DCR);
+- a Domain-Grounded Concordance Index (ICD) for factorial-effect preservation.
+
+## Scientific message
+
+No generator dominates all validation objectives. Gaussian Copula provides the most stable repeated-k-fold utility, TVAE best preserves domain-grounded concordance, and CTGAN illustrates why positive gain over a weak real-only baseline is not equivalent to robustly positive absolute prediction.
+
+The central conclusion is that statistical fidelity, downstream utility, gain over a real-only baseline, proximity risk, and domain-grounded scientific validity must be evaluated separately.
+
+Synthetic expansion is treated here as an auditable complement to bench-scale experimental design, not as a replacement for physical experimental replication.
+
+## Citation
+
+Citation metadata are provided in `CITATION.cff`. A citable Zenodo DOI will be added after the corresponding GitHub release is archived through Zenodo.
+
+## Licensing
+
+This repository uses dual licensing:
+
+- **Source code:** MIT License. See `LICENSE`.
+- **Data, figures, tables, manuscripts, supplementary material, and non-code documentation:** Creative Commons Attribution 4.0 International License (CC BY 4.0). See `LICENSE-DATA-DOCS.md`.
+
+Zenodo metadata are provided in `.zenodo.json`.
+
+## Authors
+
+- Fernando Antonio Marçal Garcia — ORCID: 0000-0003-0461-0431
+- Fabiana América Silva Dantas de Souza — ORCID: 0009-0008-2186-8649
+- Galba Maria Campos-Takaki — ORCID: 0000-0002-0519-0849
+- Clarissa Daisy da Costa Albuquerque — ORCID: 0000-0002-5492-2559
+
+## Reproducibility note
+
+The final utility results are based on repeated k-fold fold-refit validation. In each fold, synthetic data are generated only from the real training subset and evaluated on held-out real observations. This avoids train-test leakage and supports auditable comparison of utility, domain concordance, and proximity risk.
