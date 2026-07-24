@@ -1,0 +1,44 @@
+{
+  "title": "Synthetic Expansion of Bench-Scale Experimental Data on Biosurfactant Production Using Tabular Generative Models: Trade-offs Between Fidelity, Utility, and Domain-Grounded Validation",
+  "upload_type": "software",
+  "publication_date": "2026-07-20",
+  "description": "Repository supporting a Computers & Chemical Engineering manuscript on PEERFIX2 no-leakage validation of tabular synthetic-data expansion for a small bench-scale biosurfactant DOE dataset. The release contains code, data descriptors, validation outputs, figures, and supplementary material for utility, proximity-risk, and domain-grounded concordance analyses. Code is released under the MIT License; data, figures, tables, and documents are released under CC BY 4.0.",
+  "creators": [
+    {
+      "name": "Garcia, Fernando Antonio Marçal",
+      "affiliation": "Centro Universitário Maurício de Nassau – Uninassau; Universidade Federal de Pernambuco",
+      "orcid": "0000-0003-0461-0431"
+    },
+    {
+      "name": "Souza, Fabiana América Silva Dantas de",
+      "affiliation": "Universidade Federal Rural de Pernambuco",
+      "orcid": "0009-0008-2186-8649"
+    },
+    {
+      "name": "Campos-Takaki, Galba Maria",
+      "affiliation": "Universidade Católica de Pernambuco",
+      "orcid": "0000-0002-0519-0849"
+    },
+    {
+      "name": "Albuquerque, Clarissa Daisy da Costa",
+      "affiliation": "Universidade Católica de Pernambuco",
+      "orcid": "0000-0002-5492-2559"
+    }
+  ],
+  "access_right": "open",
+  "license": "mit",
+  "keywords": [
+    "biosurfactant",
+    "bioemulsifier",
+    "synthetic data",
+    "tabular generative models",
+    "PEERFIX2",
+    "domain-grounded concordance",
+    "design of experiments",
+    "small data",
+    "Candida lipolytica"
+  ],
+  "language": "eng",
+  "communities": [],
+  "notes": "Dual licensing: source code is MIT; data, figures, tables, manuscripts, and supplementary documents are CC BY 4.0."
+}
