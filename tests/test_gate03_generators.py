@@ -69,3 +69,22 @@ def test_real_generator_fit_sample_smoke(name: str):
     # The pre-freeze contract deliberately does not clip the response to the real
     # training range. The smoke test checks only that a finite response is delivered.
     assert np.isfinite(pd.to_numeric(out[TARGET]).to_numpy(float)).all()
+
+
+def test_gaussian_copula_sampling_seed_is_reproducible_and_distinct():
+    """Regression guard for the Gate 0.4 run-1 SDV fixed-seed defect.
+
+    The same requested seed must reproduce the same Gaussian-Copula sample, while
+    a different requested seed must change the sample. This specifically catches
+    SDV silently reinstalling its built-in fixed sampling seed when the synthesizer
+    level `_random_state_set` flag has not been bound correctly.
+    """
+    real = pd.read_csv(DATA)
+    generator = build_generator(_spec("gaussian_copula"), smoke=True)
+
+    a = generator(real, 40, 1729)
+    b = generator(real, 40, 1729)
+    c = generator(real, 40, 1730)
+
+    pd.testing.assert_frame_equal(a, b, check_exact=True)
+    assert not a.equals(c)
