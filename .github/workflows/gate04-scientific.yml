@@ -11,6 +11,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
 concurrency:
   group: gate04-scientific-${{ github.ref }}
   cancel-in-progress: false
