@@ -16,6 +16,10 @@ on:
       - '.github/workflows/gate04-preflight.yml'
   workflow_dispatch:
 
+concurrency:
+  group: gate04-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
