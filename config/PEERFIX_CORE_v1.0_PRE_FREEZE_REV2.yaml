@@ -1,0 +1,423 @@
+# PEERFIX-Core v1.0 — PRE-FREEZE protocol, revision 2
+# Supersedes REV1 for all new execution.
+# Gate 0.3 clarification: downstream-model stochastic seeds are held constant across generators.
+# This is NOT the final frozen protocol.
+
+protocol:
+  id: PEERFIX_CORE_v1.0_PRE_FREEZE_REV2
+  gate: "0.3"
+  date: "2026-09-13"
+  status: proposed_not_frozen
+  derivation_study: PEERFIX2
+  scientific_program: "development -> transportability -> robustness/modelability"
+  supersedes: config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV1.yaml
+  freeze_rule: >-
+    After approval and clean derivation reprocessing, invariant Core decisions are frozen.
+    External adapters may map schema, units, experimental grouping, domain constraints,
+    and reference relations, but may not tune Core algorithms or thresholds from external outcomes.
+
+provenance:
+  derivation_dataset:
+    path: data/derivation/peerfix2_historical_manuscript_dataset.csv
+    sha256: c33869c2cb6e5bd58d81d9dc2a70409c25b5147d4348d7fe5753e02beee5cf07
+    n_rows: 20
+    design: full_2^4_factorial_plus_4_center_runs
+    source_status: source_confirmed
+    source:
+      author: Souza_FASD
+      year: 2009
+      title: Biodegradacao_de_oleo_diesel_por_Candida_lipolytica_em_agua_do_mar
+      institution: Universidade_Catolica_de_Pernambuco
+      document_type: masters_dissertation
+      planning: 2
+      factor_table: Table_4_original_page_130
+      response_table: Table_8_original_page_134
+      access: open_access
+      row_match: 20_of_20
+    factors:
+      - seawater_vv
+      - urea_pv
+      - ammonium_sulfate_pv
+      - kh2po4_pv
+    target: surface_tension_mNm
+    scientific_traceability: pass
+    release_license_status: public_source_citation_required
+  prohibited_dataset:
+    path: data/quarantine/cleanup_substituted_dataset_6161c35.csv
+    sha256: d7420eaa5d1c45f1287e12af5737893b244a6302beecab0da35a2b464d040001
+    reason: introduced_during_cleanup_and_not_manuscript_lineage
+    use_for_derivation: prohibited
+    use_for_external_confirmation: prohibited
+  immutable_raw_rule: true
+  synthetic_rows_are_experimental_replicates: false
+
+modelability_gate:
+  required_components:
+    source_traceable: true
+    experimental_unit_defined: true
+    sufficient_support_for_requested_analysis: true
+    scientific_relation_identifiable: true
+  decision_rule: all_required_components_must_pass
+  failure_action: prohibit_synthetic_modeling_for_failed_block
+
+randomness:
+  master_seed: 123
+  deterministic_seed_derivation:
+    method: sha256_token_map_to_31bit_integer
+    token_template: "{master}|{purpose}|{scenario}|{repeat}|{fold}|{generator}|{realisation}|{model}"
+    generator_fit_rule: actual_generator_name_is_included_in_generator_token
+    downstream_model_rule: >-
+      The generator token is deliberately blank for downstream-model seeding. For a fixed
+      scenario/repeat/fold/model, stochastic downstream initialization must therefore be identical
+      across generator comparisons, preventing the TRTR baseline from being confounded by generator identity.
+    apply_to:
+      - python_random
+      - numpy
+      - torch_cpu
+      - torch_cuda_when_available
+      - generator_sampling
+      - downstream_model
+  silent_unseeded_rng_allowed: false
+
+scenarios:
+  primary:
+    name: baseline_0pct
+    perturbation: none
+  historical_sensitivity:
+    name: sensitivity_1pct
+    role: adapter_specific_sensitivity_not_core_invariant
+    rule: >-
+      Preserve the historical PEERFIX2 1% DOE-based perturbation only as a derivation sensitivity.
+      Calibration must use training-fold information only during utility validation.
+
+synthetic_generation:
+  generators:
+    gaussian_copula:
+      family: statistical_copula
+      implementation: SDV_GaussianCopulaSynthesizer
+      tuning_on_external_data: prohibited
+    ctgan:
+      family: conditional_GAN
+      implementation: SDV_CTGANSynthesizer
+      epochs: 300
+      tuning_on_external_data: prohibited
+    tvae:
+      family: variational_autoencoder
+      implementation: SDV_TVAESynthesizer
+      epochs: 300
+      tuning_on_external_data: prohibited
+    tabddpm:
+      family: diffusion
+      implementation: PEERFIX_small_n_TabDDPM
+      epochs: 150
+      timesteps: 100
+      batch_size: 32
+      learning_rate: 0.0005
+      hidden_dim: 128
+      n_layers: 2
+      dropout: 0.15
+      schedule: cosine
+      beta_start: 0.0001
+      beta_end: 0.01
+      weight_decay: 0.01
+      gradient_clip: 0.5
+      early_stopping: true
+      patience: 25
+      min_delta: 0.00005
+      lr_scheduler: true
+      scheduler_patience: 10
+      scheduler_factor: 0.7
+      bootstrap_augment: true
+      bootstrap_factor: 3
+      bootstrap_noise_std: 0.01
+      robust_normalization: true
+      timestep_loss_weighting: true
+      hyperparameter_tuning: false
+      tuning_on_external_data: prohibited
+  no_proxy_generator_substitution: true
+  generation_failure_must_be_logged: true
+  primary_n_synthetic:
+    peerfix2: 140
+    status: fixed_derivation_setting_not_claimed_optimal
+    note: "n=140 is a computational expansion size, not added biological evidence."
+  postprocessing:
+    factors:
+      use_declared_design_support: true
+      snap_to_declared_factor_levels: true
+      utility_training_fold_only: true
+    target:
+      clip_to_observed_train_range: false
+      hard_bounds: only_if_predeclared_by_domain_adapter
+
+utility_validation:
+  leakage_policy:
+    generator_fit: real_training_fold_only
+    postprocessing_calibration: real_training_fold_only
+    dcr_reference_if_computed: real_training_fold_only
+    downstream_fit: no_held_out_real_rows
+    held_out_real_rows_used_for_selection_or_tuning: false
+  primary_cv:
+    method: repeated_kfold
+    n_splits: 5
+    n_repeats: 10
+    shuffle: true
+    split_seed: 123
+    split_unit: experimental_run
+    score_rule: aggregate_all_out_of_fold_predictions_within_repeat_then_compute_metric
+  structural_robustness_cv:
+    enabled: true
+    role: mandatory_sensitivity
+    method: repeated_grouped_condition_kfold
+    group_definition: exact_factor_tuple
+    center_point_replicates_kept_in_same_group: true
+    n_splits: 5
+    n_repeats: 10
+    deterministic_group_partitioning: true
+  historical_comparability:
+    enabled: true
+    comparator: current_manuscript_5fold_x_5repeat_results
+    compare_first_n_primary_repeats: 5
+    target_matching_forced: false
+    discrepancy_action: document_and_trace
+  training_regimes:
+    TRTR:
+      train: real_training_fold
+      test: held_out_real_fold
+      role: real_only_baseline
+    TSTR:
+      train: synthetic_generated_from_real_training_fold_only
+      test: held_out_real_fold
+      role: absolute_synthetic_utility
+    AUGTR:
+      train: real_training_fold_plus_synthetic_from_same_training_fold
+      test: held_out_real_fold
+      role: secondary_direct_augmentation_use_case
+  metrics:
+    regression_primary: r2
+    regression_secondary:
+      - rmse
+      - mae
+    delta: TSTR_minus_TRTR_same_model_same_repeat
+    augmentation_delta: AUGTR_minus_TRTR_same_model_same_repeat
+  downstream_models:
+    seed_comparability_rule: same_scenario_repeat_fold_model_seed_across_all_generators
+    primary_reference_model:
+      id: lr
+      estimator: LinearRegression
+      reason: predeclared_low_variance_reference_for_small_n_DOE
+    fixed_secondary_panel:
+      rf:
+        estimator: RandomForestRegressor
+        n_estimators: 200
+        max_depth: 15
+        min_samples_split: 5
+        min_samples_leaf: 2
+      gbr:
+        estimator: GradientBoostingRegressor
+        hyperparameters: sklearn_defaults_except_seed
+      mlp:
+        estimator: MLPRegressor
+        preprocessing: StandardScaler_fit_on_training_only
+        hidden_layer_sizes: [100, 50]
+        activation: relu
+        solver: adam
+        alpha: 0.001
+        max_iter: 3000
+        early_stopping: true
+        validation_fraction: 0.20
+        n_iter_no_change: 50
+    primary_data_dependent_mstar_selection: prohibited
+    descriptive_best_model_table:
+      allowed: true
+      inferential_status: descriptive_only
+  uncertainty_reporting:
+    repeat_level_outputs_required: true
+    summary_statistics:
+      - mean
+      - sd
+      - median
+      - iqr
+      - min
+      - max
+    t_interval_95_across_repeats:
+      allowed: true
+      label: repeated_cv_variability_interval
+      population_confidence_interval_claim: prohibited
+    paired_delta_by_repeat_required: true
+  completeness:
+    min_complete_repeats_for_primary_summary: 8
+    failed_repeat_imputation: prohibited
+    silent_drop_of_failed_folds: prohibited
+
+icd:
+  primary_version: ICD_Core_v1_candidate
+  purpose: domain_grounded_scientific_concordance_not_predictive_utility
+  coded_factor_model:
+    coding: real_support_anchored_minus1_0_plus1
+    main_effects: all_four_factors
+    two_way_interactions: all_six_pairs
+  reference_sets:
+    primary_confirmed_only:
+      - term: kh2po4_pv
+        status: original_source_supported_primary_effect
+    secondary_expanded:
+      - term: kh2po4_pv
+        status: original_source_supported_primary_effect
+      - term: urea_pv:ammonium_sulfate_pv
+        status: peerfix_refit_candidate_borderline_secondary_effect
+  matched_effective_n:
+    enabled: true
+    reason: avoid_artificial_detectability_from_n_synthetic_greater_than_n_real
+    subsample_size: 20
+    subsamples_per_synthetic_realisation: 1000
+    sampling: without_replacement
+    seed_policy: deterministic_core_seed_map
+  components:
+    S_sign:
+      definition: proportion_of_matched_n_subsamples_with_same_coefficient_sign_as_real
+      range: [0, 1]
+    M_magnitude:
+      definition: proportion_of_matched_n_subsamples_with_coefficient_inside_real_uncertainty_band
+      real_uncertainty_band: beta_real_plus_or_minus_t_0.975_df_real_times_SE_real
+      range: [0, 1]
+    D_detectability:
+      definition: proportion_of_matched_n_subsamples_with_p_value_below_alpha
+      alpha: 0.05
+      range: [0, 1]
+    R_spurious:
+      definition: >-
+        mean matched-n fraction of non-reference coded terms that are significant in synthetic
+        while not significant in the real coded model
+      range: [0, 1]
+  composite:
+    formula: "ICD = mean(S, M, D) - lambda * R_spurious"
+    lambda_primary: 0.10
+    lambda_sensitivity: [0.00, 0.05, 0.10, 0.20]
+  full_synthetic_n_significance_as_primary: prohibited
+  historical_legacy_icd:
+    enabled_as_sensitivity: true
+    magnitude_bands_absolute: [0.5, 0.3, 0.2]
+    direct_p_value_on_full_synthetic_n: true
+    role: historical_comparability_only
+  full_realisations:
+    n_per_generator_per_scenario: 10
+    legacy_seed_labels: [123, 124, 125, 126, 127, 128, 129, 130, 131, 132]
+
+fidelity_and_structure:
+  univariate:
+    continuous:
+      - ks_statistic
+      - wasserstein_distance
+    discrete_or_designed_support:
+      - support_coverage
+      - total_variation_distance
+  multivariate:
+    - correlation_of_correlations
+    - frobenius_norm_correlation_difference
+  doe_specific_adapter_metrics:
+    - factorial_cell_coverage
+    - factor_level_frequency_deviation
+  no_single_fidelity_metric_defines_acceptance: true
+
+dcr:
+  role: proximity_diagnostic_only
+  privacy_certificate_claim: prohibited
+  primary_filtering: disabled
+  top_up_or_repulsion_generation: disabled
+  scaling_reference: real_training_fold_standard_scaler_for_fold_diagnostics
+  report:
+    - full_ecdf
+    - min
+    - p05
+    - median
+    - p95
+    - fraction_below_0.10
+  fraction_below_0.10_role: historical_comparator_not_safety_threshold
+
+adapter_contract:
+  core_may_not_change:
+    - generator_families_and_frozen_hyperparameters
+    - no_leakage_rules
+    - deterministic_seed_policy
+    - downstream_seed_comparability_across_generators
+    - TSTR_TRTR_same_model_definitions
+    - augmentation_metric_definition
+    - uncertainty_reporting_rules
+    - ICD_component_logic
+    - ICD_lambda_primary
+    - failure_logging_policy
+    - DCR_diagnostic_only_policy
+  adapter_may_define_before_outcomes:
+    - canonical_column_mapping
+    - units
+    - experimental_unit
+    - grouping_or_pairing_keys
+    - factor_and_response_roles
+    - declared_support_and_physical_constraints
+    - cross_validation_geometry_required_by_design
+    - domain_reference_relations
+    - block_eligibility
+    - modelability_gate_inputs
+  prohibited_after_external_outcomes:
+    - generator_retuning
+    - threshold_retuning
+    - seed_cherry_picking
+    - changing_primary_metrics
+    - changing_primary_reference_relation_because_of_result
+
+execution_manifest:
+  required_per_fold_fields:
+    - dataset_hash
+    - protocol_hash
+    - scenario
+    - repeat
+    - fold
+    - train_row_ids
+    - test_row_ids
+    - train_group_ids_when_applicable
+    - test_group_ids_when_applicable
+    - split_seed
+    - generator_name
+    - generator_seed
+    - generator_status
+    - synthetic_output_hash
+    - downstream_model
+    - downstream_seed
+    - predictions_hash
+    - elapsed_seconds
+    - warnings
+    - exceptions
+  required_release_artifacts:
+    - canonical_protocol_yaml
+    - environment_lock
+    - per_fold_manifest
+    - repeat_level_metrics
+    - full_realisation_manifest
+    - final_tables_generated_from_machine_readable_outputs
+    - figure_source_tables
+
+bibliographic_corrections:
+  required_before_submission:
+    - replace_Souza_2015_doctoral_UFPE_reference_with_verified_Souza_2009_masters_UNICAP_source_for_Planning_2
+  source_year_for_derivation_dataset: 2009
+
+freeze_gates:
+  gate_0_1_lineage_audit:
+    status: completed
+  gate_0_2_protocol_review:
+    status: completed_pre_freeze_candidate
+  gate_0_2b_data_identity_audit:
+    status: completed_discrepancy_recovered
+  gate_0_2c_source_confirmation:
+    status: passed
+  gate_0_3_environment_and_code_smoke_test:
+    required: true
+    status: passed
+    validated_commit: 2539309303e8be3ab758d8b4d95d964a4a80d070
+    successful_ci_run: 34742387739
+  gate_0_4_clean_derivation_rerun:
+    required: true
+    status: authorized_after_gate_0_3_pass
+  gate_0_5_reproducibility_audit_and_final_freeze:
+    required: true
+  external_confirmatory_execution_before_gate_0_5: prohibited
