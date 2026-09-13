@@ -5,6 +5,7 @@ import json
 import platform
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,7 @@ from peerfix_core.dcr import compute_dcr, summarize_dcr
 from peerfix_core.fidelity import evaluate_fidelity_bundle
 from peerfix_core.generators import GeneratorSpec, build_generator
 from peerfix_core.hashing import hash_dataframe, canonical_json_hash
-from peerfix_core.icd import evaluate_icd_matched_n
+from peerfix_core.icd import evaluate_icd_matched_n, evaluate_icd_legacy_full_n
 from peerfix_core.protocol import validate_gate04_preflight
 from peerfix_core.seeds import derive_seed
 from peerfix_core.sensitivity import (
@@ -36,12 +37,13 @@ PRIMARY_N_REPEATS = 10
 N_SPLITS = 5
 ICD_SUBSAMPLES = 1000
 MODEL_PANEL = ("lr", "rf", "gbr", "mlp")
+LAMBDA_SENSITIVITY = (0.00, 0.05, 0.10, 0.20)
 
 
 def _jsonable(v: Any) -> Any:
-    if isinstance(v, (np.integer,)):
+    if isinstance(v, np.integer):
         return int(v)
-    if isinstance(v, (np.floating,)):
+    if isinstance(v, np.floating):
         return float(v)
     if isinstance(v, np.ndarray):
         return v.tolist()
@@ -109,9 +111,7 @@ def _prediction_manifest(preds: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     keys = ["scenario", "generator", "repeat", "fold", "model", "regime"]
     for key, g in preds.groupby(keys, sort=True):
-        g2 = g.sort_values("row_id")[
-            ["row_id", "y_true", "y_pred", "model_seed"]
-        ].reset_index(drop=True)
+        g2 = g.sort_values("row_id")[["row_id", "y_true", "y_pred", "model_seed"]].reset_index(drop=True)
         row = dict(zip(keys, key))
         row["downstream_seed"] = int(g2["model_seed"].iloc[0])
         row["predictions_hash"] = hash_dataframe(g2)
@@ -145,11 +145,11 @@ def _augment_fold_manifest(
 
     for _, row in out.iterrows():
         repeat = int(row["repeat"])
-        if geometry == "row":
-            split_seeds.append(MASTER_SEED)
-        else:
-            split_seeds.append(derive_seed(MASTER_SEED, purpose="group_split", repeat=repeat))
-
+        split_seeds.append(
+            MASTER_SEED
+            if geometry == "row"
+            else derive_seed(MASTER_SEED, purpose="group_split", repeat=repeat)
+        )
         tr_ids = list(row["train_row_ids"])
         te_ids = list(row["test_row_ids"])
         train_groups.append(json.dumps(sorted(set(groups.iloc[tr_ids].tolist()))))
@@ -157,11 +157,8 @@ def _augment_fold_manifest(
 
         if scenario == "sensitivity_1pct":
             gseed = int(row["generator_seed"])
-            nseed = sensitivity_noise_seed(gseed, scenario=scenario)
-            cal = calibrate_response_jitter(
-                real.iloc[tr_ids], target=target, percent=1.0
-            )
-            noise_seeds.append(nseed)
+            cal = calibrate_response_jitter(real.iloc[tr_ids], target=target, percent=1.0)
+            noise_seeds.append(sensitivity_noise_seed(gseed, scenario=scenario))
             sigmas.append(cal.sigma)
             cal_min.append(cal.real_min)
             cal_max.append(cal.real_max)
@@ -185,35 +182,33 @@ def _augment_fold_manifest(
     return out
 
 
+def _selected_splits(real: pd.DataFrame, factors: list[str], geometry: str, repeat_start: int, repeat_end: int):
+    if geometry == "row":
+        all_splits = repeated_row_kfold(
+            len(real), n_splits=N_SPLITS, n_repeats=PRIMARY_N_REPEATS, seed=MASTER_SEED
+        )
+    else:
+        all_splits = repeated_group_condition_kfold(
+            _group_series(real, factors),
+            n_splits=N_SPLITS,
+            n_repeats=PRIMARY_N_REPEATS,
+            master_seed=MASTER_SEED,
+        )
+    return [s for s in all_splits if repeat_start <= s.repeat <= repeat_end]
+
+
 def run_utility(args: argparse.Namespace, preflight: dict[str, Any], real: pd.DataFrame) -> None:
     factors = list(preflight["factors"])
     target = str(preflight["target"])
     support = _factor_support(real, factors)
     smoke = bool(args.smoke)
-    n_repeats = 1 if smoke else PRIMARY_N_REPEATS
+    repeat_start, repeat_end = (1, 1) if smoke else (args.repeat_start, args.repeat_end)
+    n_selected_repeats = repeat_end - repeat_start + 1
     n_synthetic = 40 if smoke else N_SYNTHETIC
     models = ("lr",) if smoke else MODEL_PANEL
+    splits = _selected_splits(real, factors, args.geometry, repeat_start, repeat_end)
 
-    if args.geometry == "row":
-        splits = list(
-            repeated_row_kfold(
-                len(real), n_splits=N_SPLITS, n_repeats=n_repeats, seed=MASTER_SEED
-            )
-        )
-    else:
-        groups = _group_series(real, factors)
-        splits = list(
-            repeated_group_condition_kfold(
-                groups,
-                n_splits=N_SPLITS,
-                n_repeats=n_repeats,
-                master_seed=MASTER_SEED,
-            )
-        )
-
-    generator_fn = _generator_for(
-        args.generator, args.scenario, support, target, smoke=smoke
-    )
+    generator_fn = _generator_for(args.generator, args.scenario, support, target, smoke=smoke)
     outdir = Path(args.output_dir)
     outdir.mkdir(parents=True, exist_ok=True)
     started = time.time()
@@ -225,6 +220,8 @@ def run_utility(args: argparse.Namespace, preflight: dict[str, Any], real: pd.Da
             "generator": args.generator,
             "scenario": args.scenario,
             "geometry": args.geometry,
+            "repeat_start": repeat_start,
+            "repeat_end": repeat_end,
             "smoke": smoke,
         }
     )[:16]
@@ -260,6 +257,21 @@ def run_utility(args: argparse.Namespace, preflight: dict[str, Any], real: pd.Da
         manifest.to_csv(outdir / "fold_manifest.csv", index=False)
         preds.to_csv(outdir / "heldout_predictions.csv", index=False)
         pred_manifest.to_csv(outdir / "prediction_manifest.csv", index=False)
+
+        expected_folds = N_SPLITS * n_selected_repeats
+        expected_repeat_model_rows = n_selected_repeats * len(models)
+        if len(manifest) != expected_folds:
+            raise RuntimeError(f"incomplete fold set: {len(manifest)} != {expected_folds}")
+        if len(metrics) != expected_repeat_model_rows:
+            raise RuntimeError(
+                f"incomplete repeat/model metrics: {len(metrics)} != {expected_repeat_model_rows}"
+            )
+        expected_pred_groups = expected_folds * len(models) * 3
+        if len(pred_manifest) != expected_pred_groups:
+            raise RuntimeError(
+                f"incomplete prediction manifest: {len(pred_manifest)} != {expected_pred_groups}"
+            )
+
         _write_json(
             outdir / "completion.json",
             {
@@ -270,17 +282,17 @@ def run_utility(args: argparse.Namespace, preflight: dict[str, Any], real: pd.Da
                 "generator": args.generator,
                 "scenario": args.scenario,
                 "geometry": args.geometry,
-                "expected_folds": N_SPLITS * n_repeats,
+                "repeat_start": repeat_start,
+                "repeat_end": repeat_end,
+                "expected_folds": expected_folds,
                 "observed_folds": int(len(manifest)),
-                "expected_repeat_model_rows": n_repeats * len(models),
+                "expected_repeat_model_rows": expected_repeat_model_rows,
                 "observed_repeat_model_rows": int(len(metrics)),
                 "elapsed_seconds": time.time() - started,
                 "preflight": preflight,
                 "environment": _environment_summary(),
             },
         )
-        if len(manifest) != N_SPLITS * n_repeats:
-            raise RuntimeError("silent/incomplete fold set detected after output write")
     except Exception as exc:
         _write_json(
             outdir / "failure.json",
@@ -292,6 +304,8 @@ def run_utility(args: argparse.Namespace, preflight: dict[str, Any], real: pd.Da
                 "generator": args.generator,
                 "scenario": args.scenario,
                 "geometry": args.geometry,
+                "repeat_start": repeat_start,
+                "repeat_end": repeat_end,
                 "elapsed_seconds": time.time() - started,
                 "exception": repr(exc),
                 "preflight": preflight,
@@ -322,14 +336,22 @@ def _flatten_fidelity(bundle: dict[str, object]) -> dict[str, Any]:
     }
 
 
+def _icd_lambda_columns(prefix: str, result: dict[str, object]) -> dict[str, float]:
+    base = float(np.mean([result["mean_S"], result["mean_M"], result["mean_D"]]))
+    r = float(result["spurious_rate"])
+    out: dict[str, float] = {}
+    for lam in LAMBDA_SENSITIVITY:
+        label = f"{lam:.2f}".replace(".", "p")
+        out[f"{prefix}_lambda_{label}"] = float(base - lam * r)
+    return out
+
+
 def run_full_realisations(args: argparse.Namespace, preflight: dict[str, Any], real: pd.DataFrame) -> None:
     factors = list(preflight["factors"])
     target = str(preflight["target"])
     support = _factor_support(real, factors)
     smoke = bool(args.smoke)
-    generator_fn = _generator_for(
-        args.generator, args.scenario, support, target, smoke=smoke
-    )
+    generator_fn = _generator_for(args.generator, args.scenario, support, target, smoke=smoke)
     outdir = Path(args.output_dir)
     synth_dir = outdir / "synthetic_realisations"
     synth_dir.mkdir(parents=True, exist_ok=True)
@@ -339,7 +361,13 @@ def run_full_realisations(args: argparse.Namespace, preflight: dict[str, Any], r
 
     rows: list[dict[str, Any]] = []
     effect_rows: list[pd.DataFrame] = []
+    legacy_effect_rows: list[pd.DataFrame] = []
+    dcr_rows: list[dict[str, Any]] = []
+    fidelity_cont_rows: list[pd.DataFrame] = []
+    fidelity_support_rows: list[pd.DataFrame] = []
+    fidelity_multi_rows: list[dict[str, Any]] = []
     started_all = time.time()
+
     for realisation in realisations:
         started = time.perf_counter()
         generator_seed = derive_seed(
@@ -350,50 +378,44 @@ def run_full_realisations(args: argparse.Namespace, preflight: dict[str, Any], r
             realisation=realisation,
         )
         try:
-            synth = generator_fn(real, n_synthetic, generator_seed)
-            synth_hash = hash_dataframe(synth)
-            synth_path = synth_dir / f"realisation_{realisation:02d}.csv"
-            synth.to_csv(synth_path, index=False)
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                synth = generator_fn(real, n_synthetic, generator_seed)
+                synth_hash = hash_dataframe(synth)
+                synth_path = synth_dir / f"realisation_{realisation:02d}.csv"
+                synth.to_csv(synth_path, index=False)
 
-            icd_primary = evaluate_icd_matched_n(
-                real,
-                synth,
-                target=target,
-                factors=factors,
-                reference_terms=["kh2po4_pv"],
-                matched_n=len(real),
-                n_subsamples=n_subsamples,
-                lam=0.10,
-                master_seed=MASTER_SEED,
-                scenario=args.scenario,
-                generator=args.generator,
-                realisation=realisation,
-            )
-            icd_secondary = evaluate_icd_matched_n(
-                real,
-                synth,
-                target=target,
-                factors=factors,
-                reference_terms=["kh2po4_pv", "urea_pv:ammonium_sulfate_pv"],
-                matched_n=len(real),
-                n_subsamples=n_subsamples,
-                lam=0.10,
-                master_seed=MASTER_SEED,
-                scenario=args.scenario,
-                generator=args.generator,
-                realisation=realisation,
-            )
-            fidelity = _flatten_fidelity(
-                evaluate_fidelity_bundle(
-                    real,
-                    synth,
-                    factors=factors,
-                    target=target,
-                    support=support,
+                icd_primary = evaluate_icd_matched_n(
+                    real, synth, target=target, factors=factors,
+                    reference_terms=["kh2po4_pv"], matched_n=len(real),
+                    n_subsamples=n_subsamples, lam=0.10, master_seed=MASTER_SEED,
+                    scenario=args.scenario, generator=args.generator, realisation=realisation,
                 )
-            )
-            dcr_vals = compute_dcr(real, synth, factors + [target])
-            dcr_summary = summarize_dcr(dcr_vals)
+                icd_secondary = evaluate_icd_matched_n(
+                    real, synth, target=target, factors=factors,
+                    reference_terms=["kh2po4_pv", "urea_pv:ammonium_sulfate_pv"],
+                    matched_n=len(real), n_subsamples=n_subsamples, lam=0.10,
+                    master_seed=MASTER_SEED, scenario=args.scenario,
+                    generator=args.generator, realisation=realisation,
+                )
+                legacy_primary = evaluate_icd_legacy_full_n(
+                    real, synth, target=target, factors=factors,
+                    reference_terms=["kh2po4_pv"], lam=0.10,
+                )
+                legacy_secondary = evaluate_icd_legacy_full_n(
+                    real, synth, target=target, factors=factors,
+                    reference_terms=["kh2po4_pv", "urea_pv:ammonium_sulfate_pv"], lam=0.10,
+                )
+
+                fidelity_bundle = evaluate_fidelity_bundle(
+                    real, synth, factors=factors, target=target, support=support
+                )
+                fidelity_summary = _flatten_fidelity(fidelity_bundle)
+                dcr_vals = compute_dcr(real, synth, factors + [target])
+                dcr_summary = summarize_dcr(dcr_vals)
+                warning_messages = [
+                    f"{w.category.__name__}: {str(w.message)}" for w in caught
+                ]
 
             row: dict[str, Any] = {
                 "dataset_sha256": preflight["dataset_sha256"],
@@ -403,6 +425,7 @@ def run_full_realisations(args: argparse.Namespace, preflight: dict[str, Any], r
                 "realisation": realisation,
                 "legacy_seed_label": 122 + realisation,
                 "generator_seed": generator_seed,
+                "generator_status": "ok",
                 "synthetic_n": len(synth),
                 "synthetic_hash": synth_hash,
                 "ICD_primary": float(icd_primary["ICD"]),
@@ -411,15 +434,23 @@ def run_full_realisations(args: argparse.Namespace, preflight: dict[str, Any], r
                 "D_primary": float(icd_primary["mean_D"]),
                 "R_primary": float(icd_primary["spurious_rate"]),
                 "ICD_secondary": float(icd_secondary["ICD"]),
+                "S_secondary": float(icd_secondary["mean_S"]),
+                "M_secondary": float(icd_secondary["mean_M"]),
+                "D_secondary": float(icd_secondary["mean_D"]),
+                "R_secondary": float(icd_secondary["spurious_rate"]),
+                "ICD_legacy_primary": float(legacy_primary["ICD"]),
+                "ICD_legacy_secondary": float(legacy_secondary["ICD"]),
                 "elapsed_seconds": float(time.perf_counter() - started),
-                **fidelity,
+                "warnings": json.dumps(warning_messages),
+                "exceptions": json.dumps([]),
+                **_icd_lambda_columns("ICD_primary", icd_primary),
+                **_icd_lambda_columns("ICD_secondary", icd_secondary),
+                **fidelity_summary,
                 **{f"dcr_{k}": float(v) for k, v in dcr_summary.items()},
             }
             if args.scenario == "sensitivity_1pct":
                 cal = calibrate_response_jitter(real, target=target, percent=1.0)
-                row["sensitivity_noise_seed"] = sensitivity_noise_seed(
-                    generator_seed, scenario=args.scenario
-                )
+                row["sensitivity_noise_seed"] = sensitivity_noise_seed(generator_seed, scenario=args.scenario)
                 row["sensitivity_sigma"] = cal.sigma
                 row["sensitivity_calibration_min"] = cal.real_min
                 row["sensitivity_calibration_max"] = cal.real_max
@@ -432,6 +463,40 @@ def run_full_realisations(args: argparse.Namespace, preflight: dict[str, Any], r
                 effects.insert(0, "generator", args.generator)
                 effects.insert(0, "scenario", args.scenario)
                 effect_rows.append(effects)
+            for label, result in [("primary", legacy_primary), ("secondary", legacy_secondary)]:
+                effects = result["effects"].copy()
+                effects.insert(0, "reference_set", label)
+                effects.insert(0, "realisation", realisation)
+                effects.insert(0, "generator", args.generator)
+                effects.insert(0, "scenario", args.scenario)
+                legacy_effect_rows.append(effects)
+
+            for synthetic_row_id, d in enumerate(dcr_vals):
+                dcr_rows.append({
+                    "scenario": args.scenario,
+                    "generator": args.generator,
+                    "realisation": realisation,
+                    "synthetic_row_id": synthetic_row_id,
+                    "dcr": float(d),
+                })
+
+            cont = fidelity_bundle["continuous"].copy()
+            cont.insert(0, "realisation", realisation)
+            cont.insert(0, "generator", args.generator)
+            cont.insert(0, "scenario", args.scenario)
+            fidelity_cont_rows.append(cont)
+            supp = fidelity_bundle["support"].copy()
+            supp.insert(0, "realisation", realisation)
+            supp.insert(0, "generator", args.generator)
+            supp.insert(0, "scenario", args.scenario)
+            fidelity_support_rows.append(supp)
+            fidelity_multi_rows.append({
+                "scenario": args.scenario,
+                "generator": args.generator,
+                "realisation": realisation,
+                **fidelity_bundle["correlation"],
+                **fidelity_bundle["doe"],
+            })
         except Exception as exc:
             _write_json(
                 outdir / f"failure_realisation_{realisation:02d}.json",
@@ -448,9 +513,21 @@ def run_full_realisations(args: argparse.Namespace, preflight: dict[str, Any], r
             raise
 
     summary = pd.DataFrame(rows)
+    expected = len(realisations)
+    if len(summary) != expected:
+        raise RuntimeError(f"incomplete realization set: {len(summary)} != {expected}")
     summary.to_csv(outdir / "full_realisation_manifest.csv", index=False)
     if effect_rows:
         pd.concat(effect_rows, ignore_index=True).to_csv(outdir / "icd_effects.csv", index=False)
+    if legacy_effect_rows:
+        pd.concat(legacy_effect_rows, ignore_index=True).to_csv(outdir / "icd_legacy_effects.csv", index=False)
+    pd.DataFrame(dcr_rows).to_csv(outdir / "dcr_values.csv", index=False)
+    if fidelity_cont_rows:
+        pd.concat(fidelity_cont_rows, ignore_index=True).to_csv(outdir / "fidelity_univariate.csv", index=False)
+    if fidelity_support_rows:
+        pd.concat(fidelity_support_rows, ignore_index=True).to_csv(outdir / "fidelity_support.csv", index=False)
+    pd.DataFrame(fidelity_multi_rows).to_csv(outdir / "fidelity_multivariate_doe.csv", index=False)
+
     _write_json(
         outdir / "completion.json",
         {
@@ -476,14 +553,17 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--geometry", choices=GEOMETRIES)
     p.add_argument("--output-dir", default="outputs/gate04")
     p.add_argument("--smoke", action="store_true", help="Non-scientific fast integration run")
+    p.add_argument("--repeat-start", type=int, default=1)
+    p.add_argument("--repeat-end", type=int, default=10)
     p.add_argument("--realisation-start", type=int, default=1)
     p.add_argument("--realisation-end", type=int, default=10)
     args = p.parse_args()
-    if args.phase in {"utility", "full_realisations"}:
-        if not args.generator or not args.scenario:
-            p.error("--generator and --scenario are required for execution phases")
+    if args.phase in {"utility", "full_realisations"} and (not args.generator or not args.scenario):
+        p.error("--generator and --scenario are required for execution phases")
     if args.phase == "utility" and not args.geometry:
         p.error("--geometry is required for utility phase")
+    if not 1 <= args.repeat_start <= args.repeat_end <= PRIMARY_N_REPEATS:
+        p.error("repeat range must lie within 1..10")
     if not 1 <= args.realisation_start <= args.realisation_end <= 10:
         p.error("realisation range must lie within 1..10")
     return args
