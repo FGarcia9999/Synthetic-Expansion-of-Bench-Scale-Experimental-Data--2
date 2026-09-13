@@ -23,6 +23,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
 jobs:
   preflight:
     runs-on: ubuntu-24.04
