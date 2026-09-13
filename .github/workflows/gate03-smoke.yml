@@ -8,7 +8,7 @@ on:
       - 'peerfix_core/**'
       - 'tests/**'
       - 'requirements-gate03.txt'
-      - 'config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV1.yaml'
+      - 'config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml'
       - '.github/workflows/gate03-smoke.yml'
   workflow_dispatch:
 
