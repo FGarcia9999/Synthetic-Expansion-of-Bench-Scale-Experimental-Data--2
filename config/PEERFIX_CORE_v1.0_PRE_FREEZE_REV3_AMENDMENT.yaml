@@ -11,8 +11,9 @@ protocol_amendment:
   extends: config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml
   base_git_blob_sha: 75ee7d27abe4552b1c64de225e510691eb570c7a
   reason: >-
-    Make the historical PEERFIX2 1% DOE-noise sensitivity executable without ambiguity,
-    while preserving the REV2 no-leakage and no-target-clipping rules.
+    Make the historical PEERFIX2 1% DOE-noise sensitivity and historical ICD comparison
+    executable without ambiguity, while preserving the REV2 no-leakage, matched-effective-n
+    primary ICD, and no-target-clipping rules.
 
 historical_sensitivity_override:
   scenario: sensitivity_1pct
@@ -55,6 +56,45 @@ historical_sensitivity_override:
     error model. Removing response clipping avoids truncating generator tails and satisfies
     the predeclared REV2 rule that the response must not be clipped to the observed training range.
 
+legacy_icd_comparability:
+  role: historical_comparability_only
+  primary_inference: false
+  sample_size: full_synthetic_realisation
+  coded_model:
+    factor_coding: real_support_anchored_minus1_0_plus1
+    main_effects: all_four_factors
+    two_way_interactions: all_six_pairs
+  reference_sets:
+    primary_confirmed_only:
+      - kh2po4_pv
+    secondary_expanded:
+      - kh2po4_pv
+      - urea_pv:ammonium_sulfate_pv
+  effect_components:
+    sign: binary_same_sign_as_real
+    magnitude:
+      strength_classification_by_absolute_real_coefficient:
+        weak: abs_beta_less_than_0.30
+        moderate: abs_beta_at_least_0.30_and_less_than_0.60
+        strong: abs_beta_at_least_0.60
+      absolute_tolerance_by_strength:
+        weak: 0.5
+        moderate: 0.3
+        strong: 0.2
+    detectability:
+      alpha: 0.05
+      definition: full_synthetic_model_p_value_below_alpha
+  spurious_penalty:
+    definition: >-
+      Fraction of non-reference coded terms significant in the full synthetic model
+      while not significant in the real coded model.
+    lambda_primary: 0.10
+  composite: ICD_legacy_equals_mean_S_M_D_minus_0.10_times_spurious_rate
+  warning: >-
+    Because n=140 synthetic rows are not 140 new biological experiments, legacy detectability
+    is not used as the primary scientific ICD. It is retained only to compare the clean rerun
+    against the historical PEERFIX2 manuscript lineage.
+
 execution_identity:
   ordered_protocol_files:
     - config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml
@@ -65,6 +105,7 @@ execution_identity:
 freeze_gates_override:
   gate_0_3_environment_and_code_smoke_test: passed
   gate_0_4_sensitivity_migration: implemented_pending_ci
+  gate_0_4_legacy_icd_comparability: specified_pending_ci
   gate_0_4_clean_derivation_rerun: blocked_until_gate_0_4_preflight_pass
   gate_0_5_reproducibility_audit_and_final_freeze: required
   external_confirmatory_execution_before_gate_0_5: prohibited
