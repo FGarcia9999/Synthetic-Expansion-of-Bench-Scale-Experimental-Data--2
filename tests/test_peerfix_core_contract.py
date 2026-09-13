@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -8,6 +10,10 @@ from peerfix_core.splits import repeated_row_kfold, repeated_group_condition_kfo
 from peerfix_core.utility import evaluate_generator_utility
 from peerfix_core.icd import evaluate_icd_matched_n
 from peerfix_core.dcr import compute_dcr, summarize_dcr
+from peerfix_core.hashing import sha256_file
+
+DERIVATION_DATA = Path("data/derivation/peerfix2_historical_manuscript_dataset.csv")
+DERIVATION_SHA256 = "c33869c2cb6e5bd58d81d9dc2a70409c25b5147d4348d7fe5753e02beee5cf07"
 
 
 def make_real() -> pd.DataFrame:
@@ -23,6 +29,11 @@ def make_real() -> pd.DataFrame:
     return pd.DataFrame(rows, columns=[
         "seawater_vv","urea_pv","ammonium_sulfate_pv","kh2po4_pv","surface_tension_mNm"
     ])
+
+
+def test_source_confirmed_derivation_dataset_bytes_are_immutable():
+    assert DERIVATION_DATA.exists()
+    assert sha256_file(DERIVATION_DATA) == DERIVATION_SHA256
 
 
 def test_seed_is_stable_and_token_sensitive():
