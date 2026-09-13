@@ -31,6 +31,12 @@ def make_real() -> pd.DataFrame:
     ])
 
 
+def bootstrap_generator(train: pd.DataFrame, n: int, seed: int) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    idx = rng.choice(len(train), size=n, replace=True)
+    return train.iloc[idx].reset_index(drop=True).copy()
+
+
 def test_source_confirmed_derivation_dataset_bytes_are_immutable():
     assert DERIVATION_DATA.exists()
     assert sha256_file(DERIVATION_DATA) == DERIVATION_SHA256
@@ -66,17 +72,13 @@ def test_grouped_cv_never_splits_a_condition():
 
 def test_utility_generator_sees_training_only():
     real = make_real()
-    def generator(train: pd.DataFrame, n: int, seed: int) -> pd.DataFrame:
-        rng = np.random.default_rng(seed)
-        idx = rng.choice(len(train), size=n, replace=True)
-        return train.iloc[idx].reset_index(drop=True).copy()
     splits = list(repeated_row_kfold(len(real), n_splits=5, n_repeats=2, seed=123))
     metrics, manifest = evaluate_generator_utility(
         real,
         target="surface_tension_mNm",
         splits=splits,
         generator_name="test_bootstrap",
-        generator_fn=generator,
+        generator_fn=bootstrap_generator,
         n_synthetic=40,
         model_names=("lr",),
     )
@@ -85,6 +87,32 @@ def test_utility_generator_sees_training_only():
     assert len(manifest) == 10
     for _, row in manifest.iterrows():
         assert set(row.train_row_ids).isdisjoint(set(row.test_row_ids))
+
+
+def test_trtr_stochastic_baseline_is_identical_across_generator_names():
+    """Generator identity must not change the stochastic real-only baseline."""
+    real = make_real()
+    splits = list(repeated_row_kfold(len(real), n_splits=5, n_repeats=2, seed=123))
+    a, _ = evaluate_generator_utility(
+        real,
+        target="surface_tension_mNm",
+        splits=splits,
+        generator_name="generator_A",
+        generator_fn=bootstrap_generator,
+        n_synthetic=40,
+        model_names=("rf",),
+    )
+    b, _ = evaluate_generator_utility(
+        real,
+        target="surface_tension_mNm",
+        splits=splits,
+        generator_name="generator_B",
+        generator_fn=bootstrap_generator,
+        n_synthetic=40,
+        model_names=("rf",),
+    )
+    cols = ["TRTR_r2", "TRTR_mae", "TRTR_rmse"]
+    np.testing.assert_allclose(a[cols].to_numpy(float), b[cols].to_numpy(float), rtol=0.0, atol=0.0)
 
 
 def test_icd_matched_n_runs_and_is_bounded_above_one():
