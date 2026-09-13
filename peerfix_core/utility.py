@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Any, Iterable
+from typing import Callable, Any, Iterable, overload, Literal
 
 import numpy as np
 import pandas as pd
@@ -56,6 +56,7 @@ def _metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     }
 
 
+@overload
 def evaluate_generator_utility(
     real_df: pd.DataFrame,
     *,
@@ -67,7 +68,39 @@ def evaluate_generator_utility(
     master_seed: int = 123,
     scenario: str = "baseline_0pct",
     model_names: tuple[str, ...] = ("lr", "rf", "gbr", "mlp"),
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+    return_predictions: Literal[False] = False,
+) -> tuple[pd.DataFrame, pd.DataFrame]: ...
+
+
+@overload
+def evaluate_generator_utility(
+    real_df: pd.DataFrame,
+    *,
+    target: str,
+    splits: Iterable[SplitRecord],
+    generator_name: str,
+    generator_fn: GeneratorFn,
+    n_synthetic: int = 140,
+    master_seed: int = 123,
+    scenario: str = "baseline_0pct",
+    model_names: tuple[str, ...] = ("lr", "rf", "gbr", "mlp"),
+    return_predictions: Literal[True],
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: ...
+
+
+def evaluate_generator_utility(
+    real_df: pd.DataFrame,
+    *,
+    target: str,
+    splits: Iterable[SplitRecord],
+    generator_name: str,
+    generator_fn: GeneratorFn,
+    n_synthetic: int = 140,
+    master_seed: int = 123,
+    scenario: str = "baseline_0pct",
+    model_names: tuple[str, ...] = ("lr", "rf", "gbr", "mlp"),
+    return_predictions: bool = False,
+):
     """Leakage-free fold-refit utility evaluation.
 
     The generator receives only the real training fold. Synthetic data are generated once per
@@ -77,6 +110,10 @@ def evaluate_generator_utility(
     Downstream-model RNG is deliberately independent of ``generator_name``. Therefore the
     stochastic TRTR baseline for a given scenario/repeat/fold/model is identical across
     generators; generator identity may affect TSTR/AUGTR only through the generated data.
+
+    Gate 0.4 may request ``return_predictions=True`` to persist row-level held-out predictions
+    and build cryptographic prediction hashes. The default two-return-value API is retained for
+    Gate 0.3 compatibility.
     """
     if target not in real_df.columns:
         raise KeyError(target)
@@ -125,8 +162,6 @@ def evaluate_generator_utility(
         ya = np.concatenate([yr, ys])
 
         for model_name in model_names:
-            # Hold stochastic downstream-model initialization constant across generators.
-            # Including generator_name here would confound generator comparisons through TRTR.
             model_seed = derive_seed(
                 master_seed,
                 purpose="downstream",
@@ -183,4 +218,7 @@ def evaluate_generator_utility(
         row["delta_r2"] = row["TSTR_r2"] - row["TRTR_r2"]
         row["augmentation_delta_r2"] = row["AUGTR_r2"] - row["TRTR_r2"]
         out_rows.append(row)
-    return pd.DataFrame(out_rows), manifest
+    metrics = pd.DataFrame(out_rows)
+    if return_predictions:
+        return metrics, manifest, preds
+    return metrics, manifest
