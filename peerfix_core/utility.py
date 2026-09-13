@@ -73,6 +73,10 @@ def evaluate_generator_utility(
     The generator receives only the real training fold. Synthetic data are generated once per
     generator/fold and reused for all fixed downstream models. Scores are computed only after
     out-of-fold predictions are assembled for a complete repeat.
+
+    Downstream-model RNG is deliberately independent of ``generator_name``. Therefore the
+    stochastic TRTR baseline for a given scenario/repeat/fold/model is identical across
+    generators; generator identity may affect TSTR/AUGTR only through the generated data.
     """
     if target not in real_df.columns:
         raise KeyError(target)
@@ -121,13 +125,14 @@ def evaluate_generator_utility(
         ya = np.concatenate([yr, ys])
 
         for model_name in model_names:
+            # Hold stochastic downstream-model initialization constant across generators.
+            # Including generator_name here would confound generator comparisons through TRTR.
             model_seed = derive_seed(
                 master_seed,
                 purpose="downstream",
                 scenario=scenario,
                 repeat=split.repeat,
                 fold=split.fold,
-                generator=generator_name,
                 model=model_name,
             )
             models = default_regression_models(model_seed)
@@ -149,6 +154,7 @@ def evaluate_generator_utility(
                         "repeat": split.repeat,
                         "fold": split.fold,
                         "model": model_name,
+                        "model_seed": model_seed,
                         "regime": regime,
                         "row_id": int(rid),
                         "y_true": float(y_true),
