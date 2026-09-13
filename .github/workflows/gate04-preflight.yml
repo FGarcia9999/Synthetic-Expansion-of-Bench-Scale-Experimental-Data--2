@@ -1,0 +1,43 @@
+name: PEERFIX Gate 0.4 preflight
+
+on:
+  push:
+    branches:
+      - resume/gate0.4-clean-derivation-2026-09-13
+    paths:
+      - 'peerfix_core/**'
+      - 'tests/**'
+      - 'config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml'
+      - 'config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml'
+      - 'config/CURRENT_PEERFIX_CORE_PROTOCOL.md'
+      - 'data/derivation/peerfix2_historical_manuscript_dataset.csv'
+      - 'requirements-gate03.txt'
+      - '.github/workflows/gate04-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-gate03.txt
+      - name: Install qualified environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gate03.txt
+      - name: Core contract
+        run: python -m pytest -q tests/test_peerfix_core_contract.py
+      - name: Gate 0.4 protocol preflight
+        run: python -m pytest -q tests/test_gate04_preflight.py
+      - name: Gate 0.4 sensitivity contract
+        run: python -m pytest -q tests/test_gate04_sensitivity.py
+      - name: Recheck four real generator integrations
+        run: python -m pytest -q tests/test_gate03_generators.py
