@@ -81,12 +81,13 @@ Initial infrastructure attempt `34742162684` failed before tests because setup-p
 Successful qualification sequence:
 - run `34742186473`: environment installed, original Core contract suite passed, all four real generator fit/sample smoke calls passed;
 - run `34742260429`: source-confirmed derivation-data SHA guard included and passed;
-- run `34742387739`, commit `2539309303e8be3ab758d8b4d95d964a4a80d070`: **final Gate 0.3 functional qualification PASS** after downstream-seed deconfounding.
+- run `34742387739`, commit `2539309303e8be3ab758d8b4d95d964a4a80d070`: **final Gate 0.3 functional qualification PASS** after downstream-seed deconfounding;
+- run `34742575894`, commit `4d30d5b93517a66784d8491a83e6d9acdda9b375`: **final protocol-aligned CI PASS**, after the workflow trigger was updated to follow `PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml`.
 
-Final run results:
-- Core contract: **8 passed**;
-- four-generator integration: **5 passed**;
-- job conclusion: **success**.
+Final protocol-aligned run results:
+- Core contract: **success**;
+- four-generator integration smoke: **success**;
+- complete job conclusion: **success**.
 
 The generator smoke emitted only version/deprecation warnings from pinned third-party SDV/CTGAN APIs (`SingleTableMetadata` future deprecation and `cuda` parameter deprecation). No fit/sample failure occurred. These warnings are non-blocking under the pinned Gate 0.3 environment and will be re-evaluated before the final Gate 0.5 release lock.
 
