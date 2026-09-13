@@ -1,0 +1,70 @@
+# PEERFIX-Core v1.0 — PRE-FREEZE protocol revision 3 amendment
+# This file intentionally does not rewrite REV2. The executable protocol identity for Gate 0.4
+# is the ordered pair [REV2 base bytes, REV3 amendment bytes]. Gate 0.5 will consolidate the
+# approved protocol into one final frozen YAML.
+
+protocol_amendment:
+  id: PEERFIX_CORE_v1.0_PRE_FREEZE_REV3
+  date: "2026-09-13"
+  gate: "0.4"
+  status: proposed_not_frozen
+  extends: config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml
+  base_git_blob_sha: 75ee7d27abe4552b1c64de225e510691eb570c7a
+  reason: >-
+    Make the historical PEERFIX2 1% DOE-noise sensitivity executable without ambiguity,
+    while preserving the REV2 no-leakage and no-target-clipping rules.
+
+historical_sensitivity_override:
+  scenario: sensitivity_1pct
+  scope: peerfix2_derivation_only
+  core_invariant_for_external_validation: false
+  historical_evidence:
+    legacy_function: apply_doe_based_noise
+    legacy_rule: >-
+      Columns with at most six observed values were inferred as discrete and left unchanged;
+      each remaining numeric column received Gaussian jitter with sigma equal to
+      (noise_pct/100) times the observed real-data range. Legacy code clipped perturbed
+      values to the observed real-data min/max.
+    legacy_config_value: 1.0
+  clean_core_semantics:
+    perturbed_columns:
+      - surface_tension_mNm
+    factor_columns_unchanged:
+      - seawater_vv
+      - urea_pv
+      - ammonium_sulfate_pv
+      - kh2po4_pv
+    percent: 1.0
+    sigma_definition: 0.01_times_response_range_in_explicit_calibration_real_data
+    distribution: gaussian_zero_mean
+    deterministic_seed:
+      purpose: response_jitter
+      derived_from: fold_or_realisation_generator_seed
+      independent_rng_stream: true
+    utility_calibration_data: real_training_fold_only
+    full_realisation_calibration_data: full_authorized_derivation_dataset
+    target_clipping_to_observed_range: false
+    factor_resnapping_after_jitter: unnecessary_because_factors_are_not_perturbed
+    nonfinite_synthetic_response: fail_closed
+  intentional_difference_from_legacy:
+    - no_response_clipping
+    - explicit_response_role_instead_of_cardinality_inference
+    - deterministic_per_fold_or_realisation_noise_seed
+  rationale: >-
+    The historical scenario is retained as a derivation sensitivity, not as a new biological
+    error model. Removing response clipping avoids truncating generator tails and satisfies
+    the predeclared REV2 rule that the response must not be clipped to the observed training range.
+
+execution_identity:
+  ordered_protocol_files:
+    - config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml
+    - config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml
+  protocol_hash_rule: sha256_of_raw_bytes_concatenated_in_order_with_single_newline_separator
+  manifest_label: PEERFIX_CORE_v1.0_PRE_FREEZE_REV3
+
+freeze_gates_override:
+  gate_0_3_environment_and_code_smoke_test: passed
+  gate_0_4_sensitivity_migration: implemented_pending_ci
+  gate_0_4_clean_derivation_rerun: blocked_until_gate_0_4_preflight_pass
+  gate_0_5_reproducibility_audit_and_final_freeze: required
+  external_confirmatory_execution_before_gate_0_5: prohibited
