@@ -1,0 +1,114 @@
+name: PEERFIX Gate 0.4 scientific derivation
+
+on:
+  push:
+    branches:
+      - resume/gate0.4-clean-derivation-2026-09-13
+    paths:
+      - '.gate04/RUN_SCIENTIFIC_REV3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate04-scientific-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  utility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-gate03.txt
+      - name: Install qualified environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gate03.txt
+      - name: Fail-closed preflight
+        run: python scripts/gate04_derivation_runner.py --phase preflight
+      - name: Record exact execution environment
+        run: |
+          mkdir -p outputs/gate04_scientific/utility
+          python --version > outputs/gate04_scientific/utility/python_version.txt
+          python -m pip freeze > outputs/gate04_scientific/utility/environment_freeze.txt
+      - name: Execute all predeclared utility combinations
+        shell: bash
+        run: |
+          set -euo pipefail
+          for generator in gaussian_copula ctgan tvae tabddpm; do
+            for scenario in baseline_0pct sensitivity_1pct; do
+              for geometry in row grouped_condition; do
+                out="outputs/gate04_scientific/utility/${generator}/${scenario}/${geometry}"
+                echo "=== ${generator} | ${scenario} | ${geometry} ==="
+                python scripts/gate04_derivation_runner.py \
+                  --phase utility \
+                  --generator "${generator}" \
+                  --scenario "${scenario}" \
+                  --geometry "${geometry}" \
+                  --repeat-start 1 \
+                  --repeat-end 10 \
+                  --output-dir "${out}"
+              done
+            done
+          done
+      - name: Upload utility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate04-utility-${{ github.sha }}
+          path: outputs/gate04_scientific/utility
+          if-no-files-found: error
+          retention-days: 30
+
+  full-realisations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-gate03.txt
+      - name: Install qualified environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gate03.txt
+      - name: Fail-closed preflight
+        run: python scripts/gate04_derivation_runner.py --phase preflight
+      - name: Record exact execution environment
+        run: |
+          mkdir -p outputs/gate04_scientific/full_realisations
+          python --version > outputs/gate04_scientific/full_realisations/python_version.txt
+          python -m pip freeze > outputs/gate04_scientific/full_realisations/environment_freeze.txt
+      - name: Execute all predeclared full-realisation combinations
+        shell: bash
+        run: |
+          set -euo pipefail
+          for generator in gaussian_copula ctgan tvae tabddpm; do
+            for scenario in baseline_0pct sensitivity_1pct; do
+              out="outputs/gate04_scientific/full_realisations/${generator}/${scenario}"
+              echo "=== ${generator} | ${scenario} ==="
+              python scripts/gate04_derivation_runner.py \
+                --phase full_realisations \
+                --generator "${generator}" \
+                --scenario "${scenario}" \
+                --realisation-start 1 \
+                --realisation-end 10 \
+                --output-dir "${out}"
+            done
+          done
+      - name: Upload full-realisation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate04-full-realisations-${{ github.sha }}
+          path: outputs/gate04_scientific/full_realisations
+          if-no-files-found: error
+          retention-days: 30
