@@ -153,3 +153,82 @@ def evaluate_icd_matched_n(
         "seed": seed,
         "effects": effects,
     }
+
+
+def _legacy_strength(beta: float) -> tuple[str, float]:
+    a = abs(float(beta))
+    if a < 0.30:
+        return "weak", 0.5
+    if a < 0.60:
+        return "moderate", 0.3
+    return "strong", 0.2
+
+
+def evaluate_icd_legacy_full_n(
+    real_df: pd.DataFrame,
+    synthetic_df: pd.DataFrame,
+    *,
+    target: str,
+    factors: list[str],
+    reference_terms: list[str],
+    alpha: float = 0.05,
+    lam: float = 0.10,
+) -> dict[str, object]:
+    """Historical PEERFIX ICD on the full synthetic realization.
+
+    This is retained ONLY for historical comparability. Its detectability component uses
+    p-values from the full synthetic sample and therefore must not be interpreted as added
+    biological evidence. Primary PEERFIX-Core inference uses ``evaluate_icd_matched_n``.
+    """
+    levels = _reference_levels(real_df, factors)
+    real_model = _fit(real_df, target, factors, levels)
+    synth_model = _fit(synthetic_df, target, factors, levels)
+    candidate_terms = [t for t in real_model.params.index if t != "const"]
+    unknown_terms = [t for t in candidate_terms if t not in reference_terms]
+
+    effects_rows: list[dict[str, object]] = []
+    for term in reference_terms:
+        if term not in real_model.params.index:
+            raise KeyError(f"reference term not in model: {term}")
+        beta_real = float(real_model.params[term])
+        p_real = float(real_model.pvalues[term])
+        beta_syn = float(synth_model.params.get(term, np.nan))
+        p_syn = float(synth_model.pvalues.get(term, np.nan))
+        strength, tol = _legacy_strength(beta_real)
+        S = float(np.isfinite(beta_syn) and np.sign(beta_syn) == np.sign(beta_real))
+        M = float(np.isfinite(beta_syn) and abs(beta_real - beta_syn) <= tol)
+        D = float(np.isfinite(p_syn) and p_syn < alpha)
+        effects_rows.append({
+            "term": term,
+            "beta_real": beta_real,
+            "p_real": p_real,
+            "beta_synth": beta_syn,
+            "p_synth": p_syn,
+            "strength": strength,
+            "magnitude_tolerance": tol,
+            "S": S,
+            "M": M,
+            "D": D,
+        })
+
+    effects = pd.DataFrame(effects_rows)
+    spurious = 0
+    for term in unknown_terms:
+        p_real = float(real_model.pvalues.get(term, 1.0))
+        p_syn = float(synth_model.pvalues.get(term, 1.0))
+        if np.isfinite(p_syn) and p_syn < alpha and p_real >= alpha:
+            spurious += 1
+    R = float(spurious / len(unknown_terms)) if unknown_terms else 0.0
+    mean_S = float(effects["S"].mean())
+    mean_M = float(effects["M"].mean())
+    mean_D = float(effects["D"].mean())
+    return {
+        "ICD": float(np.mean([mean_S, mean_M, mean_D]) - lam * R),
+        "mean_S": mean_S,
+        "mean_M": mean_M,
+        "mean_D": mean_D,
+        "spurious_rate": R,
+        "n_synthetic": int(len(synthetic_df)),
+        "effects": effects,
+        "historical_comparability_only": True,
+    }
