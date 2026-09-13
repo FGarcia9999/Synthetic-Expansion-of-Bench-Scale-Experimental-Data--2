@@ -66,23 +66,37 @@ def _sdv_metadata(train_df: pd.DataFrame):
 
 
 def _try_set_model_seed(synthesizer, seed: int) -> None:
-    """Best-effort explicit model RNG binding on top of global RNG seeding.
+    """Bind the requested RNG seed to an SDV synthesizer before sampling.
 
-    SDV/CTGAN versions expose random-state hooks at different levels. Gate 0.3 records
-    package versions and tests import/fit/sample compatibility; Gate 0.5 will verify
-    repeatability on the frozen environment.
+    SDV's single-table sampling path checks the synthesizer-level
+    ``_random_state_set`` flag. If it remains false, SDV installs its own fixed
+    sampling seed before drawing rows. Therefore setting only the underlying
+    model RNG is insufficient: for the Gate 0.4 frozen environment we first use
+    SDV's version-qualified ``_set_random_state`` hook, which both forwards the
+    seed and marks the synthesizer state as explicitly seeded.
+
+    A conservative fallback supports compatible wrappers that expose only an
+    underlying ``set_random_state`` method; when that succeeds, the flag is also
+    set if present so SDV cannot silently replace the requested seed.
     """
-    candidates = [synthesizer, getattr(synthesizer, "_model", None)]
-    for obj in candidates:
-        if obj is None:
-            continue
-        setter = getattr(obj, "set_random_state", None)
-        if callable(setter):
-            try:
-                setter(int(seed))
-                return
-            except Exception:
-                pass
+    seed = int(seed)
+
+    synth_setter = getattr(synthesizer, "_set_random_state", None)
+    if callable(synth_setter):
+        synth_setter(seed)
+        return
+
+    model = getattr(synthesizer, "_model", None)
+    setter = getattr(model, "set_random_state", None) if model is not None else None
+    if callable(setter):
+        setter(seed)
+        if hasattr(synthesizer, "_random_state_set"):
+            setattr(synthesizer, "_random_state_set", True)
+        return
+
+    raise RuntimeError(
+        f"Unable to bind random state for SDV synthesizer {type(synthesizer).__name__}"
+    )
 
 
 def _sdv_generate(
