@@ -1,0 +1,39 @@
+name: PEERFIX Gate 0.3 smoke
+
+on:
+  push:
+    branches:
+      - checkpoint/peerfix-core-v1-freeze-2026-09-13
+    paths:
+      - 'peerfix_core/**'
+      - 'tests/**'
+      - 'requirements-gate03.txt'
+      - 'config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV1.yaml'
+      - '.github/workflows/gate03-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install Gate 0.3 environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gate03.txt
+      - name: Record environment
+        run: |
+          python --version
+          python -m pip freeze | tee gate03_environment_freeze.txt
+      - name: Contract tests
+        run: python -m pytest -q tests/test_peerfix_core_contract.py
+      - name: Four-generator integration smoke
+        run: python -m pytest -q tests/test_gate03_generators.py
