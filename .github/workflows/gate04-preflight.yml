@@ -6,6 +6,7 @@ on:
       - resume/gate0.4-clean-derivation-2026-09-13
     paths:
       - 'peerfix_core/**'
+      - 'scripts/**'
       - 'tests/**'
       - 'config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml'
       - 'config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml'
@@ -43,3 +44,44 @@ jobs:
         run: python -m pytest -q tests/test_gate04_fidelity.py
       - name: Recheck four real generator integrations
         run: python -m pytest -q tests/test_gate03_generators.py
+      - name: Runner fail-closed preflight
+        run: python scripts/gate04_derivation_runner.py --phase preflight
+      - name: Runner smoke — baseline utility
+        run: |
+          python scripts/gate04_derivation_runner.py \
+            --phase utility \
+            --generator gaussian_copula \
+            --scenario baseline_0pct \
+            --geometry row \
+            --smoke \
+            --output-dir /tmp/gate04_smoke/utility_base
+          test -f /tmp/gate04_smoke/utility_base/completion.json
+      - name: Runner smoke — sensitivity utility
+        run: |
+          python scripts/gate04_derivation_runner.py \
+            --phase utility \
+            --generator gaussian_copula \
+            --scenario sensitivity_1pct \
+            --geometry row \
+            --smoke \
+            --output-dir /tmp/gate04_smoke/utility_sens
+          test -f /tmp/gate04_smoke/utility_sens/completion.json
+      - name: Runner smoke — grouped-condition utility
+        run: |
+          python scripts/gate04_derivation_runner.py \
+            --phase utility \
+            --generator gaussian_copula \
+            --scenario baseline_0pct \
+            --geometry grouped_condition \
+            --smoke \
+            --output-dir /tmp/gate04_smoke/utility_grouped
+          test -f /tmp/gate04_smoke/utility_grouped/completion.json
+      - name: Runner smoke — full-realisation sensitivity
+        run: |
+          python scripts/gate04_derivation_runner.py \
+            --phase full_realisations \
+            --generator gaussian_copula \
+            --scenario sensitivity_1pct \
+            --smoke \
+            --output-dir /tmp/gate04_smoke/full_sens
+          test -f /tmp/gate04_smoke/full_sens/completion.json
