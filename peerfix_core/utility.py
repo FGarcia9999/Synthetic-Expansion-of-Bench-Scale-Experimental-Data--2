@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+import warnings
 from typing import Callable, Any, Iterable, overload, Literal
 
 import numpy as np
@@ -113,7 +115,8 @@ def evaluate_generator_utility(
 
     Gate 0.4 may request ``return_predictions=True`` to persist row-level held-out predictions
     and build cryptographic prediction hashes. The default two-return-value API is retained for
-    Gate 0.3 compatibility.
+    Gate 0.3 compatibility. Fold elapsed time and emitted warnings are always captured in the
+    manifest; exceptions fail closed and are re-raised with repeat/fold context.
     """
     if target not in real_df.columns:
         raise KeyError(target)
@@ -124,6 +127,7 @@ def evaluate_generator_utility(
     manifest_rows: list[dict[str, Any]] = []
 
     for split in splits:
+        started = time.perf_counter()
         train = work.iloc[split.train_idx].copy()
         test = work.iloc[split.test_idx].copy()
         generator_seed = derive_seed(
@@ -134,13 +138,68 @@ def evaluate_generator_utility(
             fold=split.fold,
             generator=generator_name,
         )
-        synth = generator_fn(train.drop(columns=["__row_id__"]), n_synthetic, generator_seed)
-        if not isinstance(synth, pd.DataFrame) or len(synth) == 0:
-            raise RuntimeError(f"generator {generator_name} failed at repeat={split.repeat} fold={split.fold}")
-        missing = [c for c in real_df.columns if c not in synth.columns]
-        if missing:
-            raise ValueError(f"synthetic output missing columns: {missing}")
-        synth = synth[real_df.columns].reset_index(drop=True)
+        warning_messages: list[str] = []
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                synth = generator_fn(train.drop(columns=["__row_id__"]), n_synthetic, generator_seed)
+                if not isinstance(synth, pd.DataFrame) or len(synth) == 0:
+                    raise RuntimeError(
+                        f"generator {generator_name} failed at repeat={split.repeat} fold={split.fold}"
+                    )
+                missing = [c for c in real_df.columns if c not in synth.columns]
+                if missing:
+                    raise ValueError(f"synthetic output missing columns: {missing}")
+                synth = synth[real_df.columns].reset_index(drop=True)
+
+                Xr, yr = train[features], train[target].to_numpy(float)
+                Xt, yt = test[features], test[target].to_numpy(float)
+                Xs, ys = synth[features], synth[target].to_numpy(float)
+                Xa = pd.concat([Xr, Xs], ignore_index=True)
+                ya = np.concatenate([yr, ys])
+
+                for model_name in model_names:
+                    model_seed = derive_seed(
+                        master_seed,
+                        purpose="downstream",
+                        scenario=scenario,
+                        repeat=split.repeat,
+                        fold=split.fold,
+                        model=model_name,
+                    )
+                    models = default_regression_models(model_seed)
+                    if model_name not in models:
+                        raise KeyError(f"unknown model {model_name}")
+                    regimes = {
+                        "TRTR": (Xr, yr),
+                        "TSTR": (Xs, ys),
+                        "AUGTR": (Xa, ya),
+                    }
+                    for regime, (Xfit, yfit) in regimes.items():
+                        est = clone(models[model_name])
+                        est.fit(Xfit, yfit)
+                        pred = np.asarray(est.predict(Xt), dtype=float)
+                        for rid, y_true, y_hat in zip(test["__row_id__"].astype(int), yt, pred):
+                            pred_rows.append({
+                                "scenario": scenario,
+                                "generator": generator_name,
+                                "repeat": split.repeat,
+                                "fold": split.fold,
+                                "model": model_name,
+                                "model_seed": model_seed,
+                                "regime": regime,
+                                "row_id": int(rid),
+                                "y_true": float(y_true),
+                                "y_pred": float(y_hat),
+                            })
+                warning_messages = [
+                    f"{w.category.__name__}: {str(w.message)}" for w in caught
+                ]
+        except Exception as exc:
+            raise RuntimeError(
+                f"utility fold failure generator={generator_name} scenario={scenario} "
+                f"repeat={split.repeat} fold={split.fold}: {exc}"
+            ) from exc
 
         manifest_rows.append({
             "scenario": scenario,
@@ -153,48 +212,10 @@ def evaluate_generator_utility(
             "synthetic_n": len(synth),
             "synthetic_hash": hash_dataframe(synth),
             "generator_status": "ok",
+            "elapsed_seconds": float(time.perf_counter() - started),
+            "warnings": warning_messages,
+            "exceptions": [],
         })
-
-        Xr, yr = train[features], train[target].to_numpy(float)
-        Xt, yt = test[features], test[target].to_numpy(float)
-        Xs, ys = synth[features], synth[target].to_numpy(float)
-        Xa = pd.concat([Xr, Xs], ignore_index=True)
-        ya = np.concatenate([yr, ys])
-
-        for model_name in model_names:
-            model_seed = derive_seed(
-                master_seed,
-                purpose="downstream",
-                scenario=scenario,
-                repeat=split.repeat,
-                fold=split.fold,
-                model=model_name,
-            )
-            models = default_regression_models(model_seed)
-            if model_name not in models:
-                raise KeyError(f"unknown model {model_name}")
-            regimes = {
-                "TRTR": (Xr, yr),
-                "TSTR": (Xs, ys),
-                "AUGTR": (Xa, ya),
-            }
-            for regime, (Xfit, yfit) in regimes.items():
-                est = clone(models[model_name])
-                est.fit(Xfit, yfit)
-                pred = np.asarray(est.predict(Xt), dtype=float)
-                for rid, y_true, y_hat in zip(test["__row_id__"].astype(int), yt, pred):
-                    pred_rows.append({
-                        "scenario": scenario,
-                        "generator": generator_name,
-                        "repeat": split.repeat,
-                        "fold": split.fold,
-                        "model": model_name,
-                        "model_seed": model_seed,
-                        "regime": regime,
-                        "row_id": int(rid),
-                        "y_true": float(y_true),
-                        "y_pred": float(y_hat),
-                    })
 
     preds = pd.DataFrame(pred_rows)
     manifest = pd.DataFrame(manifest_rows)
