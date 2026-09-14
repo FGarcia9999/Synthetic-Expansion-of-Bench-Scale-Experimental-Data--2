@@ -17,6 +17,9 @@ except Exception:  # pragma: no cover - explicit dependency checked by Gate 0.3
     nn = None
 
 
+DISCRETE_MAX_UNIQUE = 6
+
+
 @dataclass(frozen=True)
 class TabDDPMConfig:
     epochs: int = 150
@@ -36,6 +39,7 @@ class TabDDPMConfig:
     bootstrap_factor: int = 3
     bootstrap_noise_std: float = 0.01
     robust_normalization: bool = True
+    timestep_loss_weighting: bool = True
 
     def smoke(self) -> "TabDDPMConfig":
         return replace(
@@ -69,6 +73,25 @@ def _cosine_betas(timesteps: int, s: float = 0.008) -> np.ndarray:
     return np.clip(betas, 1e-5, 0.999).astype(np.float32)
 
 
+def _weighted_denoising_mse(
+    pred: "torch.Tensor",
+    eps: "torch.Tensor",
+    alpha_bar_t: "torch.Tensor",
+    *,
+    enabled: bool,
+) -> "torch.Tensor":
+    """Historical PEERFIX timestep-weighted denoising loss.
+
+    Weighting is part of the predeclared TabDDPM semantics. It is not tuned from
+    Gate 0.4 outcomes. When disabled, this reduces exactly to ordinary MSE.
+    """
+    sq = (pred - eps) ** 2
+    if not enabled:
+        return torch.mean(sq)
+    weights = 1.0 / torch.sqrt(alpha_bar_t + 1e-8)
+    return torch.mean(weights.unsqueeze(-1) * sq)
+
+
 class _Denoiser(nn.Module if nn is not None else object):
     def __init__(self, d: int, timesteps: int, hidden: int, n_layers: int, dropout: float):
         if nn is None:  # pragma: no cover
@@ -96,11 +119,11 @@ class _Denoiser(nn.Module if nn is not None else object):
 class SmallNTabDDPM:
     """Numerical small-n DDPM used by the PEERFIX pre-freeze Core.
 
-    This is a clean implementation, not a proxy for another generator.  It preserves the
-    design intent of the historical PEERFIX TabDDPM block: robust scaling, optional light
-    bootstrap augmentation, a regularized denoiser, cosine diffusion, gradient clipping,
-    LR scheduling and early stopping.  Gate 0.3 smoke settings only reduce epochs/timesteps;
-    scientific runs use the protocol values.
+    This is a clean implementation, not a proxy for another generator. It preserves the
+    predeclared/historical PEERFIX TabDDPM semantics relevant to Gate 0.4: robust scaling,
+    discrete-aware bootstrap augmentation, timestep-weighted denoising loss, cosine
+    diffusion, posterior-variance reverse sampling, gradient clipping, LR scheduling and
+    early stopping. No response clipping is performed.
     """
 
     def __init__(self, config: TabDDPMConfig | None = None, *, device: str | None = None):
@@ -115,6 +138,20 @@ class SmallNTabDDPM:
         self.betas: torch.Tensor | None = None
         self.alphas: torch.Tensor | None = None
         self.alpha_bar: torch.Tensor | None = None
+        self.alpha_bar_prev: torch.Tensor | None = None
+        self.posterior_variance: torch.Tensor | None = None
+        self.discrete_mask: np.ndarray | None = None
+
+    @staticmethod
+    def _detect_discrete_mask(df: pd.DataFrame, max_unique: int = DISCRETE_MAX_UNIQUE) -> np.ndarray:
+        """Identify DOE-like numeric columns that must not receive bootstrap jitter."""
+        mask: list[bool] = []
+        for col in df.columns:
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                mask.append(False)
+                continue
+            mask.append(int(df[col].nunique(dropna=True)) <= int(max_unique))
+        return np.asarray(mask, dtype=bool)
 
     def _normalize_fit(self, x: np.ndarray) -> np.ndarray:
         if self.config.robust_normalization:
@@ -132,6 +169,7 @@ class SmallNTabDDPM:
         xr = self.standard.inverse_transform(z)
         if self.robust is not None:
             xr = self.robust.inverse_transform(xr)
+        # Deliberately no percentile/min-max clipping: Gate 0.4 forbids target clipping.
         return xr
 
     def _augment(self, z: np.ndarray, rng: np.random.Generator) -> np.ndarray:
@@ -141,7 +179,10 @@ class SmallNTabDDPM:
         idx = rng.choice(len(z), size=n, replace=True)
         out = z[idx].copy()
         if self.config.bootstrap_noise_std > 0:
-            out += rng.normal(0.0, self.config.bootstrap_noise_std, out.shape).astype(np.float32)
+            noise = rng.normal(0.0, self.config.bootstrap_noise_std, out.shape).astype(np.float32)
+            if self.discrete_mask is not None and self.discrete_mask.any():
+                noise[:, self.discrete_mask] = 0.0
+            out += noise
         return out
 
     def fit(self, df: pd.DataFrame, *, seed: int) -> "SmallNTabDDPM":
@@ -149,6 +190,7 @@ class SmallNTabDDPM:
         if not all(pd.api.types.is_numeric_dtype(df[c]) for c in df.columns):
             raise TypeError("PEERFIX_small_n_TabDDPM currently requires an all-numeric table")
         self.columns = list(df.columns)
+        self.discrete_mask = self._detect_discrete_mask(df)
         x = df.to_numpy(dtype=np.float32, copy=True)
         if not np.isfinite(x).all():
             raise ValueError("TabDDPM input contains non-finite values")
@@ -160,9 +202,17 @@ class SmallNTabDDPM:
         d = z.shape[1]
         self.model = _Denoiser(d, cfg.timesteps, cfg.hidden_dim, cfg.n_layers, cfg.dropout).to(self.device)
         betas_np = _cosine_betas(cfg.timesteps)
-        self.betas = torch.tensor(betas_np, device=self.device)
+        self.betas = torch.tensor(betas_np, dtype=torch.float32, device=self.device)
         self.alphas = 1.0 - self.betas
         self.alpha_bar = torch.cumprod(self.alphas, dim=0)
+        self.alpha_bar_prev = torch.cat([
+            torch.ones(1, dtype=self.alpha_bar.dtype, device=self.device),
+            self.alpha_bar[:-1],
+        ])
+        self.posterior_variance = self.betas * (
+            1.0 - self.alpha_bar_prev
+        ) / torch.clamp(1.0 - self.alpha_bar, min=1e-12)
+        self.posterior_variance = torch.clamp(self.posterior_variance, min=0.0)
 
         opt = torch.optim.AdamW(
             self.model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay
@@ -183,10 +233,15 @@ class SmallNTabDDPM:
                 xb = zt[perm[start:start + cfg.batch_size]]
                 t = torch.randint(0, cfg.timesteps, (len(xb),), device=self.device)
                 eps = torch.randn_like(xb)
-                abar = self.alpha_bar[t].unsqueeze(1)
-                noisy = torch.sqrt(abar) * xb + torch.sqrt(1.0 - abar) * eps
+                abar = self.alpha_bar[t]
+                noisy = torch.sqrt(abar).unsqueeze(1) * xb + torch.sqrt(1.0 - abar).unsqueeze(1) * eps
                 pred = self.model(noisy, t)
-                loss = torch.mean((pred - eps) ** 2)
+                loss = _weighted_denoising_mse(
+                    pred,
+                    eps,
+                    abar,
+                    enabled=cfg.timestep_loss_weighting,
+                )
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), cfg.gradient_clip)
@@ -209,7 +264,13 @@ class SmallNTabDDPM:
 
     @torch.no_grad() if torch is not None else (lambda f: f)
     def sample(self, n: int, *, seed: int) -> pd.DataFrame:
-        if self.model is None or self.betas is None or self.alphas is None or self.alpha_bar is None:
+        if (
+            self.model is None
+            or self.betas is None
+            or self.alphas is None
+            or self.alpha_bar is None
+            or self.posterior_variance is None
+        ):
             raise RuntimeError("call fit() before sample()")
         _seed_all(seed)
         self.model.eval()
@@ -222,7 +283,8 @@ class SmallNTabDDPM:
             beta_t = self.betas[ti]
             mean = (x - (beta_t / torch.sqrt(1.0 - abar_t)) * eps_hat) / torch.sqrt(alpha_t)
             if ti > 0:
-                x = mean + torch.sqrt(beta_t) * torch.randn_like(x)
+                variance_t = self.posterior_variance[ti]
+                x = mean + torch.sqrt(variance_t) * torch.randn_like(x)
             else:
                 x = mean
         arr = self._normalize_inverse(x.detach().cpu().numpy())
