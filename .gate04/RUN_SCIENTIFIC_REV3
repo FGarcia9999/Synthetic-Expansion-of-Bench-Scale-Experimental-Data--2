@@ -1,10 +1,10 @@
 PEERFIX Gate 0.4 scientific rerun
 Date: 2026-09-14
 Protocol: PEERFIX_CORE_v1.0_PRE_FREEZE_REV3
-Preflight run: 34868017734
+Preflight run: 34891251335
 Preflight result: success
-Validated branch head: 686ebca2b1bb82f2a149a4a4726522fba96c5748
+Validated branch head: 88585e5f4b05ee9e6b54180be198cca3ceb70d0a
 Scope: PEERFIX2 derivation only
 External confirmatory datasets: prohibited until Gate 0.5
 
-Run one complete post-conformance Gate 0.4 scientific execution. No tuning or external-data execution is permitted.
+Run one complete provenance-fixed Gate 0.4 scientific execution. Canonical dataframe persistence and round-trip hash verification are mandatory before artifact upload. No tuning or external-data execution is permitted.
