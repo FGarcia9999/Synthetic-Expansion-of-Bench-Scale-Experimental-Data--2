@@ -60,6 +60,8 @@ jobs:
               done
             done
           done
+      - name: Finalize and verify canonical provenance
+        run: python scripts/gate04_finalize_provenance.py --phase utility --root outputs/gate04_scientific/utility
       - name: Upload utility evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -107,6 +109,8 @@ jobs:
                 --output-dir "${out}"
             done
           done
+      - name: Finalize and verify canonical provenance
+        run: python scripts/gate04_finalize_provenance.py --phase full_realisations --root outputs/gate04_scientific/full_realisations
       - name: Upload full-realisation evidence
         if: always()
         uses: actions/upload-artifact@v4
