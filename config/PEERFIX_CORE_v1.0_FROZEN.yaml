@@ -1,0 +1,130 @@
+# PEERFIX-Core v1.0 — FINAL FROZEN PROTOCOL
+protocol:
+  id: PEERFIX_CORE_v1.0_FROZEN
+  date: "2026-09-14"
+  status: frozen
+  derivation_study: PEERFIX2
+  frozen_from_commit: 74b827768e0401de2aa24fb30bc69896dca6ae6b
+  accepted_pre_freeze_label: PEERFIX_CORE_v1.0_PRE_FREEZE_REV3
+  accepted_pre_freeze_sha256: 4ea74a46938f133db8e88ca2db446dc8d84f3815732709dbdb6c217dfa038e06
+  base_protocol:
+    path: config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml
+    git_blob_sha: 75ee7d27abe4552b1c64de225e510691eb570c7a
+  amendment:
+    path: config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml
+    git_blob_sha: 23bf5dc50bb1ae8d16c8edfbdee8cd0e7185ab3b
+
+provenance:
+  derivation_dataset:
+    path: data/derivation/peerfix2_historical_manuscript_dataset.csv
+    sha256: c33869c2cb6e5bd58d81d9dc2a70409c25b5147d4348d7fe5753e02beee5cf07
+    n_rows: 20
+    source_status: source_confirmed
+  quarantined_dataset:
+    path: data/quarantine/cleanup_substituted_dataset_6161c35.csv
+    use_for_derivation: prohibited
+    use_for_external_confirmation: prohibited
+
+randomness:
+  master_seed: 123
+  deterministic_seed_derivation: sha256_token_map_to_31bit_integer
+  downstream_seed_comparability_across_generators: required
+  silent_unseeded_rng_allowed: false
+
+synthetic_generation:
+  generators:
+    - gaussian_copula
+    - ctgan
+    - tvae
+    - tabddpm
+  no_proxy_generator_substitution: true
+  external_outcome_tuning: prohibited
+  n_synthetic_peerfix2: 140
+  target_clipping_to_observed_range: false
+
+utility_validation:
+  generator_fit: real_training_fold_only
+  postprocessing_calibration: real_training_fold_only
+  held_out_real_rows_used_for_selection_or_tuning: false
+  primary_cv:
+    method: repeated_kfold
+    n_splits: 5
+    n_repeats: 10
+    split_seed: 123
+  structural_cv:
+    method: repeated_grouped_condition_kfold
+    group_definition: exact_factor_tuple
+    center_point_replicates_kept_together: true
+    n_splits: 5
+    n_repeats: 10
+  regimes: [TRTR, TSTR, AUGTR]
+  downstream_models: [lr, rf, gbr, mlp]
+  trtr_seed_invariant_across_generators: true
+
+historical_sensitivity:
+  scenario: sensitivity_1pct
+  role: derivation_sensitivity_not_external_core_invariant
+  perturbed_columns: [surface_tension_mNm]
+  percent: 1.0
+  utility_calibration: real_training_fold_only
+  full_realisation_calibration: full_authorized_derivation_dataset
+  clipping: false
+
+icd:
+  primary: matched_effective_n
+  matched_n: 20
+  subsamples_per_realisation: 1000
+  lambda_primary: 0.10
+  legacy_full_n: historical_comparability_only
+
+fidelity_and_dcr:
+  fidelity_single_metric_acceptance: prohibited
+  dcr_role: proximity_diagnostic_only
+  privacy_certificate_claim: prohibited
+
+adapter_contract:
+  core_may_not_change:
+    - generator_families_and_frozen_hyperparameters
+    - no_leakage_rules
+    - deterministic_seed_policy
+    - downstream_seed_comparability_across_generators
+    - TSTR_TRTR_same_model_definitions
+    - augmentation_metric_definition
+    - uncertainty_reporting_rules
+    - ICD_component_logic
+    - ICD_lambda_primary
+    - failure_logging_policy
+    - DCR_diagnostic_only_policy
+  adapter_may_define_before_outcomes:
+    - canonical_column_mapping
+    - units
+    - experimental_unit
+    - grouping_or_pairing_keys
+    - factor_and_response_roles
+    - declared_support_and_physical_constraints
+    - cross_validation_geometry_required_by_design
+    - domain_reference_relations
+    - block_eligibility
+    - modelability_gate_inputs
+  prohibited_after_external_outcomes:
+    - generator_retuning
+    - threshold_retuning
+    - seed_cherry_picking
+    - changing_primary_metrics
+    - changing_primary_reference_relation_because_of_result
+
+freeze_evidence:
+  gate04_preflight_run: 34891251335
+  gate04_scientific_run: 34893947717
+  gate04_scientific_commit: 74b827768e0401de2aa24fb30bc69896dca6ae6b
+  utility_provenance_entries: 16
+  full_realisation_provenance_entries: 8
+  full_realisations_per_generator_scenario: 10
+  unique_synthetic_hashes_required_per_generator_scenario: 10
+  gate04_status: pass
+  gate05_status: pass_and_frozen
+
+external_confirmation:
+  execution_before_freeze: prohibited
+  execution_after_freeze: allowed_only_through_predeclared_adapter_contract
+  core_retuning_from_external_outcomes: prohibited
