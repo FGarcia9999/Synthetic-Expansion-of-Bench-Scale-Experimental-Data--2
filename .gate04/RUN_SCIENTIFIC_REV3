@@ -1,9 +1,10 @@
-PEERFIX Gate 0.4 scientific execution authorization
-Date: 2026-09-13
-Protocol label: PEERFIX_CORE_v1.0_PRE_FREEZE_REV3
-Preflight workflow run: 34788851407
-Preflight conclusion: success
+PEERFIX Gate 0.4 scientific rerun
+Date: 2026-09-14
+Protocol: PEERFIX_CORE_v1.0_PRE_FREEZE_REV3
+Preflight run: 34868017734
+Preflight result: success
+Validated branch head: 686ebca2b1bb82f2a149a4a4726522fba96c5748
 Scope: PEERFIX2 derivation only
 External confirmatory datasets: prohibited until Gate 0.5
 
-This sentinel authorizes the predeclared Gate 0.4 scientific rerun only. It does not authorize tuning, external-data execution, or changes to Core thresholds based on outcomes.
+Run one complete post-conformance Gate 0.4 scientific execution. No tuning or external-data execution is permitted.
