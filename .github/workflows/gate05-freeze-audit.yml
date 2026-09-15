@@ -1,0 +1,85 @@
+name: PEERFIX Gate 0.5 reproducibility and freeze audit
+
+on:
+  push:
+    branches:
+      - freeze/peerfix-core-v1.0-2026-09-15
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
+jobs:
+  gate05:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-gate03.txt
+      - name: Install qualified environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gate03.txt
+      - name: Verify protected scientific implementation unchanged since final Gate 0.4 run
+        run: |
+          git diff --exit-code 74b827768e0401de2aa24fb30bc69896dca6ae6b HEAD -- \
+            peerfix_core \
+            scripts \
+            tests \
+            requirements-gate03.txt \
+            data/derivation \
+            config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml \
+            config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml \
+            config/CURRENT_PEERFIX_CORE_PROTOCOL.md
+      - name: Verify derivation and protocol identities
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          expected_data = 'c33869c2cb6e5bd58d81d9dc2a70409c25b5147d4348d7fe5753e02beee5cf07'
+          expected_protocol = '4ea74a46938f133db8e88ca2db446dc8d84f3815732709dbdb6c217dfa038e06'
+          data = Path('data/derivation/peerfix2_historical_manuscript_dataset.csv').read_bytes()
+          assert hashlib.sha256(data).hexdigest() == expected_data
+          rev2 = Path('config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml').read_bytes()
+          rev3 = Path('config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml').read_bytes()
+          assert hashlib.sha256(rev2 + b'\n' + rev3).hexdigest() == expected_protocol
+          print('identity PASS')
+          PY
+      - name: Verify frozen manifest anchors
+        run: |
+          grep -q 'PEERFIX_CORE_v1.0_FROZEN' config/01_PEERFIX_CORE_v1_FROZEN.yaml
+          grep -q '74b827768e0401de2aa24fb30bc69896dca6ae6b' config/01_PEERFIX_CORE_v1_FROZEN.yaml
+          grep -q '34893947717' config/01_PEERFIX_CORE_v1_FROZEN.yaml
+          grep -q 'external_generator_execution_before_gate05_pass: prohibited' config/01_PEERFIX_CORE_v1_FROZEN.yaml
+      - name: Full Core and Gate 0.4 contract test suite
+        run: python -m pytest -q tests
+      - name: Fail-closed protocol preflight
+        run: python scripts/gate04_derivation_runner.py --phase preflight
+      - name: Record Gate 0.5 audit evidence
+        run: |
+          mkdir -p outputs/gate05_freeze_audit
+          git rev-parse HEAD > outputs/gate05_freeze_audit/freeze_candidate_commit.txt
+          git rev-parse 74b827768e0401de2aa24fb30bc69896dca6ae6b > outputs/gate05_freeze_audit/scientific_validation_commit.txt
+          python --version > outputs/gate05_freeze_audit/python_version.txt
+          python -m pip freeze > outputs/gate05_freeze_audit/environment_freeze.txt
+          sha256sum config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml > outputs/gate05_freeze_audit/file_hashes.txt
+          sha256sum config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml >> outputs/gate05_freeze_audit/file_hashes.txt
+          sha256sum config/01_PEERFIX_CORE_v1_FROZEN.yaml >> outputs/gate05_freeze_audit/file_hashes.txt
+          sha256sum data/derivation/peerfix2_historical_manuscript_dataset.csv >> outputs/gate05_freeze_audit/file_hashes.txt
+      - name: Upload Gate 0.5 freeze audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate05-freeze-audit-${{ github.sha }}
+          path: outputs/gate05_freeze_audit
+          if-no-files-found: error
+          retention-days: 90
