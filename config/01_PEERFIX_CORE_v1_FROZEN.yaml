@@ -1,6 +1,6 @@
 protocol:
   id: PEERFIX_CORE_v1.0_FROZEN
-  status: freeze_candidate_gate_0_5
+  status: frozen
   date: 2026-09-15
   derivation_study: PEERFIX2
   scientific_program: development_to_transportability_to_robustness
@@ -111,13 +111,29 @@ validated_gate04_evidence:
   gaussian_copula_baseline_unique_realisations: 10_of_10
   tabddpm_algorithmic_conformance: pass
 
+validated_gate05_evidence:
+  workflow_run: 34984504198
+  audit_candidate_commit: 82fd49bd3b91edf5ff9049b11f21dec02caa6e11
+  artifact:
+    id: 10403037514
+    name: gate05-freeze-audit-82fd49bd3b91edf5ff9049b11f21dec02caa6e11
+    sha256: 47e6611fda5d0510fb622594d92e535f90c1ab79ebbe0590f78bf72ad9a3229a
+  protected_scientific_implementation_unchanged: pass
+  derivation_and_protocol_identity: pass
+  frozen_manifest_anchors: pass
+  full_contract_test_suite: 35_passed
+  fail_closed_protocol_preflight: pass
+  decision: pass
+
 external_validation_firewall:
   source_provenance_audit_before_freeze: allowed
   external_generator_execution_before_gate05_pass: prohibited
+  external_generator_execution_after_gate05_pass: authorized_only_after_adapter_and_reference_effect_preregistration
   external_retuning_after_freeze: prohibited
   adapter_and_reference_effect_preregistration_before_execution: required
 
 freeze_status:
   gate_0_4: pass
-  gate_0_5: in_progress
-  final_freeze_effective_only_after_gate_0_5_ci_pass: true
+  gate_0_5: pass
+  final_freeze_effective: true
+  frozen_effective_date: 2026-09-15
