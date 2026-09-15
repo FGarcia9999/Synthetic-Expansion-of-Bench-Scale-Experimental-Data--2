@@ -1,0 +1,123 @@
+protocol:
+  id: PEERFIX_CORE_v1.0_FROZEN
+  status: freeze_candidate_gate_0_5
+  date: 2026-09-15
+  derivation_study: PEERFIX2
+  scientific_program: development_to_transportability_to_robustness
+
+semantic_identity:
+  rule: exact_pre_freeze_protocol_semantics_plus_gate04_provenance_contract
+  ordered_pre_freeze_sources:
+    - path: config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml
+      git_blob_sha: 75ee7d27abe4552b1c64de225e510691eb570c7a
+    - path: config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml
+      git_blob_sha: 23bf5dc50bb1ae8d16c8edfbdee8cd0e7185ab3b
+  execution_protocol_sha256: 4ea74a46938f133db8e88ca2db446dc8d84f3815732709dbdb6c217dfa038e06
+  scientific_validation_commit: 74b827768e0401de2aa24fb30bc69896dca6ae6b
+  gate04_final_audit_commit: c0d4b4517c0954945ca2b537fb7efd0c63dd46d3
+
+provenance_contract:
+  dataframe_serialization:
+    csv_index: false
+    line_terminator: LF
+    float_format: "%.17g"
+    encoding: utf-8
+    read_float_precision: round_trip
+  persisted_byte_hash: sha256
+  manifest_hash_must_equal_persisted_file_sha256: true
+  fail_closed_roundtrip_verification: true
+
+qualified_derivation_dataset:
+  path: data/derivation/peerfix2_historical_manuscript_dataset.csv
+  sha256: c33869c2cb6e5bd58d81d9dc2a70409c25b5147d4348d7fe5753e02beee5cf07
+  n_rows: 20
+  design: full_2^4_factorial_plus_4_center_runs
+  source: Souza_2009_masters_dissertation_UNICAP
+  source_status: source_confirmed
+
+prohibited_derivation_dataset:
+  path: data/quarantine/cleanup_substituted_dataset_6161c35.csv
+  sha256: d7420eaa5d1c45f1287e12af5737893b244a6302beecab0da35a2b464d040001
+  use: prohibited
+
+frozen_invariants:
+  generator_families_and_hyperparameters: inherited_exactly_from_REV2_REV3
+  no_leakage_rules: inherited_exactly_from_REV2_REV3
+  deterministic_seed_policy: inherited_exactly_from_REV2_REV3
+  downstream_seed_generator_invariance: required
+  primary_cv: repeated_kfold_5x10
+  structural_cv: repeated_grouped_condition_kfold_5x10
+  primary_reference_model: linear_regression
+  primary_n_synthetic_peerfix2: 140
+  matched_n_icd: required
+  icd_matched_n: 20
+  icd_subsamples_per_realisation: 1000
+  icd_lambda_primary: 0.10
+  dcr_role: diagnostic_only
+  dcr_filtering: prohibited
+  target_clip_to_observed_range: false
+  external_outcome_retuning: prohibited
+  synthetic_rows_are_new_biological_evidence: false
+
+frozen_generator_panel:
+  gaussian_copula:
+    implementation: SDV_GaussianCopulaSynthesizer
+  ctgan:
+    implementation: SDV_CTGANSynthesizer
+    epochs: 300
+  tvae:
+    implementation: SDV_TVAESynthesizer
+    epochs: 300
+  tabddpm:
+    implementation: PEERFIX_small_n_TabDDPM
+    epochs: 150
+    timesteps: 100
+    batch_size: 32
+    learning_rate: 0.0005
+    hidden_dim: 128
+    n_layers: 2
+    dropout: 0.15
+    schedule: cosine
+    weight_decay: 0.01
+    gradient_clip: 0.5
+    patience: 25
+    min_delta: 0.00005
+    scheduler_patience: 10
+    scheduler_factor: 0.7
+    bootstrap_augment: true
+    bootstrap_factor: 3
+    bootstrap_noise_std: 0.01
+    robust_normalization: true
+    timestep_loss_weighting: true
+    reverse_sampling_variance: posterior_variance
+    discrete_aware_bootstrap_noise: true
+    response_clipping: false
+
+validated_gate04_evidence:
+  workflow_run: 34893947717
+  utility_artifact:
+    id: 10370239011
+    name: gate04-utility-74b827768e0401de2aa24fb30bc69896dca6ae6b
+    sha256: 09913fb3067aa792b537041c57c939fe53c34889f195e22392fdfeb0ec6d6492
+  full_realisations_artifact:
+    id: 10369160706
+    name: gate04-full-realisations-74b827768e0401de2aa24fb30bc69896dca6ae6b
+    sha256: 103fe5da868e341620d715dcaa80b591ed121b0c536de50584c0393d558cb342
+  canonical_provenance_roundtrip: pass
+  completeness: pass
+  leakage_audit: pass
+  downstream_TRTR_invariance: pass
+  generator_seed_uniqueness: pass
+  gaussian_copula_baseline_unique_realisations: 10_of_10
+  tabddpm_algorithmic_conformance: pass
+
+external_validation_firewall:
+  source_provenance_audit_before_freeze: allowed
+  external_generator_execution_before_gate05_pass: prohibited
+  external_retuning_after_freeze: prohibited
+  adapter_and_reference_effect_preregistration_before_execution: required
+
+freeze_status:
+  gate_0_4: pass
+  gate_0_5: in_progress
+  final_freeze_effective_only_after_gate_0_5_ci_pass: true
