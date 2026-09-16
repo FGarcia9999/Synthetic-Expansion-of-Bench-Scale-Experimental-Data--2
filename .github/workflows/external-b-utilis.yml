@@ -1,0 +1,106 @@
+name: PEERFIX EXT-B C. utilis external validation
+
+on:
+  push:
+    branches:
+      - external/peerfix-ext-mogii-utilis-2026-09-16
+    paths:
+      - '.external/RUN_EXT_B'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install frozen qualified environment
+        run: pip install -r requirements-gate03.txt
+      - name: Verify frozen Core implementation unchanged
+        run: |
+          git diff --exit-code 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1 -- peerfix_core requirements-gate03.txt
+      - name: Run Core plus external adapter contract tests
+        run: pytest -q tests/test_gate04_core.py tests/test_gate04_provenance_roundtrip.py tests/test_gate04_tabddpm_conformance.py tests/test_external_validation_contract.py
+      - name: EXT-B Y1/Y3 fail-closed preflight and Y2 negative-control block
+        run: |
+          python scripts/external_validation_runner.py --dataset ext_b_y1 --preflight-only
+          python scripts/external_validation_runner.py --dataset ext_b_y3 --preflight-only
+          if python scripts/external_validation_runner.py --dataset ext_b_y2 --preflight-only; then
+            echo 'ERROR: Y2 negative-control unexpectedly passed modelability preflight' >&2
+            exit 1
+          else
+            echo 'Y2 correctly blocked: no synthetic generation authorized.'
+          fi
+
+  scientific:
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        dataset: [ext_b_y1, ext_b_y3]
+        generator: [gaussian_copula, ctgan, tvae, tabddpm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install frozen qualified environment
+        run: pip install -r requirements-gate03.txt
+      - name: Recheck block preflight
+        run: python scripts/external_validation_runner.py --dataset ${{ matrix.dataset }} --preflight-only
+      - name: Leakage-free utility — row CV
+        run: python scripts/external_validation_runner.py --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --geometry row --mode utility --output-root outputs/external
+      - name: Leakage-free utility — grouped-condition CV
+        run: python scripts/external_validation_runner.py --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --geometry grouped_condition --mode utility --output-root outputs/external
+      - name: Full realizations, fidelity, DCR and matched-n ICD
+        run: python scripts/external_validation_runner.py --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --mode full --output-root outputs/external
+      - name: Upload generator evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-b-${{ matrix.dataset }}-${{ matrix.generator }}-${{ github.sha }}
+          path: outputs/external/${{ matrix.dataset }}/${{ matrix.generator }}/
+          if-no-files-found: error
+          retention-days: 60
+
+  audit:
+    needs: scientific
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install frozen qualified environment
+        run: pip install -r requirements-gate03.txt
+      - name: Download all EXT-B artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: external-b-*
+          path: collected
+      - name: Assemble Y1 and Y3 roots
+        run: |
+          mkdir -p outputs/external/ext_b_y1 outputs/external/ext_b_y3
+          for d in collected/external-b-ext_b_y1-*; do g=$(echo "$d" | sed -E 's#.*external-b-ext_b_y1-([a-z_]+)-[0-9a-f]+#\1#'); mkdir -p "outputs/external/ext_b_y1/$g"; cp -R "$d"/. "outputs/external/ext_b_y1/$g/"; done
+          for d in collected/external-b-ext_b_y3-*; do g=$(echo "$d" | sed -E 's#.*external-b-ext_b_y3-([a-z_]+)-[0-9a-f]+#\1#'); mkdir -p "outputs/external/ext_b_y3/$g"; cp -R "$d"/. "outputs/external/ext_b_y3/$g/"; done
+      - name: Audit Y1 completeness, hashes, seeds, leakage coverage and TRTR invariance
+        run: python scripts/external_audit.py --dataset ext_b_y1 --root outputs/external --out audit_y1
+      - name: Audit Y3 completeness, hashes, seeds, leakage coverage and TRTR invariance
+        run: python scripts/external_audit.py --dataset ext_b_y3 --root outputs/external --out audit_y3
+      - name: Upload EXT-B audit and scientific summaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-b-audit-${{ github.sha }}
+          path: |
+            audit_y1/
+            audit_y3/
+          if-no-files-found: error
+          retention-days: 90
