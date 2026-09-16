@@ -1,0 +1,67 @@
+adapter:
+  id: PEERFIX_EXT_A_C_MOGII_v1
+  role: primary_external_transportability
+  frozen_core_commit: 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1
+  preregistration_status: frozen_before_generator_execution
+
+provenance:
+  source_workbook: DOE_Artigo Foods (def) Peterson.xlsx
+  sha256: 1ed8bb86457c613cb8fa14b2b836e95ff40c82529749f8e258b987adfdd0a33f
+  source_status: author_confirmed_original_workbook
+  analysis_use: authorized_in_author_correspondence
+  public_raw_redistribution: not_assumed
+
+experimental_unit:
+  unit: DOE_run
+  n_runs: 27
+  within_run_measurements: [ST1, ST2, ST3]
+  promote_within_run_measurements_to_independent_rows: false
+
+design:
+  geometry: four_factor_central_composite_design
+  factorial_points: 16
+  axial_points: 8
+  center_points: 3
+  axial_distance_alpha: 2
+  factors:
+    A: {name: licuri_oil, coded_levels: [-2,-1,0,1,2]}
+    B: {name: glucose, coded_levels: [-2,-1,0,1,2]}
+    C: {name: ammonium_nitrate, coded_levels: [-2,-1,0,1,2]}
+    D: {name: yeast_extract, coded_levels: [-2,-1,0,1,2]}
+
+response:
+  canonical_primary: STred
+  definition: STw_minus_STmean
+  STw_mNm: 71.179
+  use_STexp_as_modeling_target: false
+
+reference_model:
+  form: full_quadratic_OLS_in_coded_factors
+  source_reconstruction_R2: 0.94516799
+  confirmed_effects_p_lt_0_05:
+    - {term: D, sign: positive}
+    - {term: A:B, sign: negative}
+    - {term: A:D, sign: positive}
+    - {term: B:C, sign: negative}
+    - {term: B:D, sign: negative}
+  excluded_from_primary_confirmed_set:
+    - {term: C:D, reason: borderline_p_0_0680}
+
+validation:
+  primary_cv: {method: repeated_kfold, n_splits: 5, n_repeats: 10}
+  structural_cv:
+    method: repeated_grouped_condition_kfold
+    n_splits: 5
+    n_repeats: 10
+    group: exact_factor_tuple
+    keep_center_replicates_together: true
+  n_synthetic: 140
+  matched_effective_n_for_icd: 27
+  tuning_on_external_outcomes: prohibited
+
+modelability_gate:
+  source_traceable: true
+  experimental_unit_defined: true
+  support_sufficient: true
+  scientific_relation_identifiable: true
+  decision: PASS
