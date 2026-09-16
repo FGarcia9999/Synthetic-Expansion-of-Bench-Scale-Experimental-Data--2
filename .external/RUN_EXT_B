@@ -6,3 +6,4 @@ Frozen Core: 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1
 No outcome-driven tuning authorized.
 Retry 1: engineering-only setup-python cache dependency-path correction after run 35147474501 failed before dependency installation.
 Retry 2: engineering-only checkout fetch-depth correction after run 35151491207 could not resolve the frozen Core anchor in a depth-1 clone; no scientific job ran and no confirmatory outcome was observed.
+Retry 3: engineering-only test-path correction after run 35158164989 referenced nonexistent tests/test_gate04_core.py; frozen-Core diff passed, but no adapter preflight or scientific job ran and no confirmatory outcome was observed. Reauthorized after replacing only that path with the existing tests/test_peerfix_core_contract.py.
