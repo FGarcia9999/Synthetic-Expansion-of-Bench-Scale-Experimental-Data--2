@@ -20,6 +20,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+          cache-dependency-path: requirements-gate03.txt
       - name: Install frozen qualified environment
         run: pip install -r requirements-gate03.txt
       - name: Verify frozen Core implementation unchanged
@@ -52,6 +53,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+          cache-dependency-path: requirements-gate03.txt
       - name: Install frozen qualified environment
         run: pip install -r requirements-gate03.txt
       - name: Recheck block preflight
@@ -79,6 +81,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+          cache-dependency-path: requirements-gate03.txt
       - name: Install frozen qualified environment
         run: pip install -r requirements-gate03.txt
       - name: Download all EXT-B artifacts
