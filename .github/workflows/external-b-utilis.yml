@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -25,6 +27,7 @@ jobs:
         run: pip install -r requirements-gate03.txt
       - name: Verify frozen Core implementation unchanged
         run: |
+          git cat-file -e 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1^{commit}
           git diff --exit-code 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1 -- peerfix_core requirements-gate03.txt
       - name: Run Core plus external adapter contract tests
         run: pytest -q tests/test_gate04_core.py tests/test_gate04_provenance_roundtrip.py tests/test_gate04_tabddpm_conformance.py tests/test_external_validation_contract.py
