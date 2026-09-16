@@ -1,0 +1,127 @@
+name: PEERFIX EXT-A C. mogii external validation
+
+on:
+  push:
+    branches:
+      - external/peerfix-ext-mogii-utilis-2026-09-16
+    paths:
+      - '.external/RUN_EXT_A'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
+concurrency:
+  group: peerfix-ext-a-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-gate03.txt
+      - name: Install frozen qualified environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gate03.txt
+      - name: Verify frozen Core implementation unchanged
+        run: |
+          git diff --exit-code 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1 HEAD -- \
+            peerfix_core \
+            requirements-gate03.txt \
+            config/01_PEERFIX_CORE_v1_FROZEN.yaml \
+            config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV2.yaml \
+            config/PEERFIX_CORE_v1.0_PRE_FREEZE_REV3_AMENDMENT.yaml
+      - name: Run Core plus external adapter contract tests
+        run: python -m pytest -q tests
+      - name: EXT-A fail-closed preflight
+        run: python scripts/external_validation_runner.py --phase preflight --dataset ext_a
+
+  scientific:
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        generator: [gaussian_copula, ctgan, tvae, tabddpm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-gate03.txt
+      - name: Install frozen qualified environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gate03.txt
+      - name: Recheck EXT-A preflight
+        run: python scripts/external_validation_runner.py --phase preflight --dataset ext_a
+      - name: Leakage-free utility — row CV
+        run: |
+          python scripts/external_validation_runner.py \
+            --phase utility --dataset ext_a --generator ${{ matrix.generator }} --geometry row \
+            --output-dir outputs/external/ext_a/${{ matrix.generator }}/utility/row
+      - name: Leakage-free utility — grouped-condition CV
+        run: |
+          python scripts/external_validation_runner.py \
+            --phase utility --dataset ext_a --generator ${{ matrix.generator }} --geometry grouped_condition \
+            --output-dir outputs/external/ext_a/${{ matrix.generator }}/utility/grouped_condition
+      - name: Full realizations, fidelity, DCR and matched-n ICD
+        run: |
+          python scripts/external_validation_runner.py \
+            --phase full --dataset ext_a --generator ${{ matrix.generator }} \
+            --output-dir outputs/external/ext_a/${{ matrix.generator }}/full
+      - name: Upload generator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-a-${{ matrix.generator }}-${{ github.sha }}
+          path: outputs/external
+          if-no-files-found: error
+          retention-days: 60
+
+  audit:
+    needs: scientific
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-gate03.txt
+      - name: Install frozen qualified environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gate03.txt
+      - name: Download all EXT-A generator artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: external-a-*-${{ github.sha }}
+          path: outputs/external
+          merge-multiple: true
+      - name: Audit completeness, hashes, seeds, coverage and TRTR invariance
+        run: |
+          python scripts/external_audit.py \
+            --root outputs/external --dataset ext_a --output-dir outputs/external_audit/ext_a
+      - name: Upload EXT-A audit and scientific summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-a-audit-${{ github.sha }}
+          path: outputs/external_audit/ext_a
+          if-no-files-found: error
+          retention-days: 90
