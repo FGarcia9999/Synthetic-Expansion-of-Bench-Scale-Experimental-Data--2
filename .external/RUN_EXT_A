@@ -1,0 +1,7 @@
+PEERFIX EXT-A execution authorization
+Date: 2026-09-16
+Frozen Core: 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1
+Dataset: C. mogii / 27-run CCD / STred
+Preregistration: config/external/00_EXTERNAL_VALIDATION_PREREGISTRATION.md
+Adapter: config/external/01_ADAPTER_C_MOGII.yaml
+Rule: no retuning; execute frozen Core exactly as preregistered.
