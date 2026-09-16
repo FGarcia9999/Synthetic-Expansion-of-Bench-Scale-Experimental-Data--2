@@ -30,7 +30,7 @@ jobs:
           git cat-file -e 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1^{commit}
           git diff --exit-code 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1 -- peerfix_core requirements-gate03.txt
       - name: Run Core plus external adapter contract tests
-        run: pytest -q tests/test_gate04_core.py tests/test_gate04_provenance_roundtrip.py tests/test_gate04_tabddpm_conformance.py tests/test_external_validation_contract.py
+        run: pytest -q tests/test_peerfix_core_contract.py tests/test_gate04_provenance_roundtrip.py tests/test_gate04_tabddpm_conformance.py tests/test_external_validation_contract.py
       - name: EXT-B Y1/Y3 fail-closed preflight and Y2 negative-control block
         run: |
           python scripts/external_validation_runner.py --dataset ext_b_y1 --preflight-only
