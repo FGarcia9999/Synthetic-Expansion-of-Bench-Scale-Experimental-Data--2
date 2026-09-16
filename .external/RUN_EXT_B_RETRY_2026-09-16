@@ -1,0 +1,3 @@
+EXT-B retry authorization after engineering-only GitHub Actions setup-python cache fix.
+No frozen Core scientific rule, generator hyperparameter, metric, threshold, reference effect, seed, dataset, adapter, or confirmatory ordering changed.
+Previous run 35147474501 failed before dependency installation because setup-python cache discovery expected requirements.txt/pyproject.toml.
