@@ -4,4 +4,5 @@ Blocks: Y1 primary positive; Y3 secondary concordance
 Y2: prespecified negative-control; modelability-blocked; NO synthetic generation
 Frozen Core: 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1
 No outcome-driven tuning authorized.
-Retry: engineering-only setup-python cache dependency-path correction after run 35147474501 failed before dependency installation.
+Retry 1: engineering-only setup-python cache dependency-path correction after run 35147474501 failed before dependency installation.
+Retry 2: engineering-only checkout fetch-depth correction after run 35151491207 could not resolve the frozen Core anchor in a depth-1 clone; no scientific job ran and no confirmatory outcome was observed.
