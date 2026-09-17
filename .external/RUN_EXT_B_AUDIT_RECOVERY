@@ -1,0 +1,9 @@
+PEERFIX EXT-B audit-only recovery authorization
+Date: 2026-09-17
+Source scientific run: 35188098365
+Source scientific commit: 2f7565ee0c5ee5e472e0dc5750d86e6c8feee515
+Frozen Core: 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1
+All 8 scientific jobs and preflight completed successfully in the source run.
+Original audit failed only because cross-runner TRTR numerical differences reached 1.5646151041437406e-11 while the audit threshold was 1e-12.
+Audit-only recovery uses an engineering absolute tolerance of 1e-10, approximately 2e-12 relative at response magnitude 40-50.
+No scientific job, generator, model, seed, threshold, metric, reference effect, or outcome is rerun or changed.
