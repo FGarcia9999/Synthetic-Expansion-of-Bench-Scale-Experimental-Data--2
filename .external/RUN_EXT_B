@@ -1,10 +1,11 @@
 PEERFIX EXT-B execution authorization
-Date: 2026-09-16
+Date: 2026-09-17
 Blocks: Y1 primary positive; Y3 secondary concordance
 Y2: prespecified negative-control; modelability-blocked; NO synthetic generation
 Frozen Core: 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1
 No outcome-driven tuning authorized.
 Retry 1: engineering-only setup-python cache dependency-path correction after run 35147474501 failed before dependency installation.
 Retry 2: engineering-only checkout fetch-depth correction after run 35151491207 could not resolve the frozen Core anchor in a depth-1 clone; no scientific job ran and no confirmatory outcome was observed.
-Retry 3: engineering-only test-path correction after run 35158164989 referenced nonexistent tests/test_gate04_core.py; frozen-Core diff passed, but no adapter preflight or scientific job ran and no confirmatory outcome was observed. Reauthorized after replacing only that path with the existing tests/test_peerfix_core_contract.py.
-Retry 4: engineering-only Python import-path correction after run 35160167512 passed frozen-Core integrity verification but pytest collection could not import repository-local peerfix_core/peerfix_external packages. No adapter preflight or scientific job ran and no confirmatory outcome was observed. Reauthorized after setting workflow-level PYTHONPATH to github.workspace only; frozen scientific implementation and protocol remain unchanged.
+Retry 3: engineering-only test-path correction after run 35158164989 referenced nonexistent tests/test_gate04_core.py; frozen-Core diff passed, but no adapter preflight or scientific job ran and no confirmatory outcome was observed.
+Retry 4: engineering-only Python import-path correction after run 35160167512 passed frozen-Core integrity verification but pytest collection could not import repository-local packages; no scientific job ran.
+Retry 5: engineering-only CLI wiring correction after run 35166764484 passed frozen-Core verification and 19/19 contract tests, then failed because the workflow used obsolete --preflight-only/--mode/--output-root arguments. No generator ran and no confirmatory outcome was observed. Reauthorized after changing workflow invocation only to the runner's existing --phase/--output-dir interface and explicit Y2 BLOCKED_BY_MODELABILITY status check; frozen scientific implementation and protocol remain unchanged.
