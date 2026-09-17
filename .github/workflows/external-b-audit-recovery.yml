@@ -1,0 +1,60 @@
+name: PEERFIX EXT-B audit-only recovery
+
+on:
+  push:
+    branches:
+      - external/peerfix-ext-mogii-utilis-2026-09-16
+    paths:
+      - '.external/RUN_EXT_B_AUDIT_RECOVERY'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-gate03.txt
+      - name: Install frozen qualified environment
+        run: pip install -r requirements-gate03.txt
+      - name: Download completed EXT-B scientific artifacts from run 35188098365
+        uses: actions/download-artifact@v4
+        with:
+          pattern: external-b-*-2f7565ee0c5ee5e472e0dc5750d86e6c8feee515
+          path: outputs/external
+          merge-multiple: true
+          run-id: 35188098365
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Audit Y1 with cross-runner floating-point tolerance
+        run: python scripts/external_audit_fp_tolerant.py --dataset ext_b_y1 --root outputs/external --output-dir audit_y1
+      - name: Audit Y3 with cross-runner floating-point tolerance
+        run: python scripts/external_audit_fp_tolerant.py --dataset ext_b_y3 --root outputs/external --output-dir audit_y3
+      - name: Record recovery provenance
+        run: |
+          mkdir -p audit_meta
+          printf '%s\n' 'source_scientific_run=35188098365' > audit_meta/provenance.txt
+          printf '%s\n' 'source_scientific_commit=2f7565ee0c5ee5e472e0dc5750d86e6c8feee515' >> audit_meta/provenance.txt
+          printf '%s\n' 'frozen_core=0d5a73d128fe374c8165f3b84a2412ac9b02cbc1' >> audit_meta/provenance.txt
+          printf '%s\n' 'scientific_jobs_rerun=false' >> audit_meta/provenance.txt
+          printf '%s\n' 'audit_change=engineering_only_cross_runner_floating_point_equivalence' >> audit_meta/provenance.txt
+      - name: Upload recovered EXT-B audits
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-b-audit-recovery-${{ github.sha }}
+          path: |
+            audit_y1/
+            audit_y3/
+            audit_meta/
+          if-no-files-found: error
+          retention-days: 90
