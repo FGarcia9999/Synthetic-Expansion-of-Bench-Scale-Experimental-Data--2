@@ -36,14 +36,11 @@ jobs:
         run: pytest -q tests/test_peerfix_core_contract.py tests/test_gate04_provenance_roundtrip.py tests/test_gate04_tabddpm_conformance.py tests/test_external_validation_contract.py
       - name: EXT-B Y1/Y3 fail-closed preflight and Y2 negative-control block
         run: |
-          python scripts/external_validation_runner.py --dataset ext_b_y1 --preflight-only
-          python scripts/external_validation_runner.py --dataset ext_b_y3 --preflight-only
-          if python scripts/external_validation_runner.py --dataset ext_b_y2 --preflight-only; then
-            echo 'ERROR: Y2 negative-control unexpectedly passed modelability preflight' >&2
-            exit 1
-          else
-            echo 'Y2 correctly blocked: no synthetic generation authorized.'
-          fi
+          python scripts/external_validation_runner.py --phase preflight --dataset ext_b_y1
+          python scripts/external_validation_runner.py --phase preflight --dataset ext_b_y3
+          python scripts/external_validation_runner.py --phase preflight --dataset ext_b_y2 | tee /tmp/ext_b_y2_preflight.json
+          grep -q '"status": "BLOCKED_BY_MODELABILITY"' /tmp/ext_b_y2_preflight.json || { echo 'ERROR: Y2 negative-control did not report BLOCKED_BY_MODELABILITY' >&2; exit 1; }
+          echo 'Y2 correctly blocked: no synthetic generation authorized.'
 
   scientific:
     needs: preflight
@@ -63,18 +60,19 @@ jobs:
       - name: Install frozen qualified environment
         run: pip install -r requirements-gate03.txt
       - name: Recheck block preflight
-        run: python scripts/external_validation_runner.py --dataset ${{ matrix.dataset }} --preflight-only
+        run: python scripts/external_validation_runner.py --phase preflight --dataset ${{ matrix.dataset }}
       - name: Leakage-free utility — row CV
-        run: python scripts/external_validation_runner.py --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --geometry row --mode utility --output-root outputs/external
+        run: python scripts/external_validation_runner.py --phase utility --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --geometry row --output-dir outputs/external/${{ matrix.dataset }}/${{ matrix.generator }}/utility/row
       - name: Leakage-free utility — grouped-condition CV
-        run: python scripts/external_validation_runner.py --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --geometry grouped_condition --mode utility --output-root outputs/external
+        run: python scripts/external_validation_runner.py --phase utility --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --geometry grouped_condition --output-dir outputs/external/${{ matrix.dataset }}/${{ matrix.generator }}/utility/grouped_condition
       - name: Full realizations, fidelity, DCR and matched-n ICD
-        run: python scripts/external_validation_runner.py --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --mode full --output-root outputs/external
+        run: python scripts/external_validation_runner.py --phase full --dataset ${{ matrix.dataset }} --generator ${{ matrix.generator }} --output-dir outputs/external/${{ matrix.dataset }}/${{ matrix.generator }}/full
       - name: Upload generator evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: external-b-${{ matrix.dataset }}-${{ matrix.generator }}-${{ github.sha }}
-          path: outputs/external/${{ matrix.dataset }}/${{ matrix.generator }}/
+          path: outputs/external
           if-no-files-found: error
           retention-days: 60
 
@@ -93,17 +91,13 @@ jobs:
       - name: Download all EXT-B artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: external-b-*
-          path: collected
-      - name: Assemble Y1 and Y3 roots
-        run: |
-          mkdir -p outputs/external/ext_b_y1 outputs/external/ext_b_y3
-          for d in collected/external-b-ext_b_y1-*; do g=$(echo "$d" | sed -E 's#.*external-b-ext_b_y1-([a-z_]+)-[0-9a-f]+#\1#'); mkdir -p "outputs/external/ext_b_y1/$g"; cp -R "$d"/. "outputs/external/ext_b_y1/$g/"; done
-          for d in collected/external-b-ext_b_y3-*; do g=$(echo "$d" | sed -E 's#.*external-b-ext_b_y3-([a-z_]+)-[0-9a-f]+#\1#'); mkdir -p "outputs/external/ext_b_y3/$g"; cp -R "$d"/. "outputs/external/ext_b_y3/$g/"; done
+          pattern: external-b-*-${{ github.sha }}
+          path: outputs/external
+          merge-multiple: true
       - name: Audit Y1 completeness, hashes, seeds, leakage coverage and TRTR invariance
-        run: python scripts/external_audit.py --dataset ext_b_y1 --root outputs/external --out audit_y1
+        run: python scripts/external_audit.py --dataset ext_b_y1 --root outputs/external --output-dir audit_y1
       - name: Audit Y3 completeness, hashes, seeds, leakage coverage and TRTR invariance
-        run: python scripts/external_audit.py --dataset ext_b_y3 --root outputs/external --out audit_y3
+        run: python scripts/external_audit.py --dataset ext_b_y3 --root outputs/external --output-dir audit_y3
       - name: Upload EXT-B audit and scientific summaries
         uses: actions/upload-artifact@v4
         with:
