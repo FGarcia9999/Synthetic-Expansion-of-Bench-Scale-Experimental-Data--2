@@ -30,7 +30,7 @@ Portuguese Supplementary v1:
 `Material_Suplementar_Manuscrito2_PEERFIX_Validacao_Externa_PT_v1.docx`
 
 Local SHA-256:
-`d549f90eca04c50b935939b9a3ad892906d23b949a1909fe940089e5fb14e39f`
+`08e81fdbd74dac5f62949b10f5c1e681e0f0516e7ab2aa5c8b8fbaa766c32899`
 
 Machine-readable package:
 `PEERFIX_Manuscrito2_Supplementary_machine_readable_v1.zip`
