@@ -1,0 +1,80 @@
+adapter:
+  id: PEERFIX_EXT_C_FONTES_Y_LIPOLYTICA_v1
+  role: prospective_external_factorial_transportability
+  frozen_core_commit: 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1
+  preregistration_status: fixed_before_PEERFIX_execution
+
+provenance:
+  source_article: "Fontes GC et al. Factorial Design to Optimize Biosurfactant Production by Yarrowia lipolytica. BioMed Research International. 2010:821306."
+  doi: "10.1155/2010/821306"
+  source_table: "Table 4 — carbon source analyses"
+  source_url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC2846354/"
+  canonical_csv: "data/external/ext_c_fontes_carbon_2pow4.csv"
+  canonical_csv_sha256: "41dba19fe743147ab249951c2e388a2f6c0647fa55af7b306e7fe54223f2f5d2"
+  source_status: public_open_access_table
+
+experimental_unit:
+  unit: experimental_assay
+  n_assays: 19
+  factorial_points: 16
+  center_points: 3
+
+design:
+  geometry: full_2pow4_factorial_plus_3_center_assays
+  coded_levels: [-1, 0, 1]
+  factors:
+    z1_glycerol: {actual_pct: {-1: 0, 0: 1, 1: 2}}
+    z2_olive_oil: {actual_pct: {-1: 0, 0: 2, 1: 4}}
+    z3_hexadecane: {actual_pct: {-1: 0, 0: 1, 1: 2}}
+    z4_glucose: {actual_pct: {-1: 0, 0: 2, 1: 4}}
+
+response_blocks:
+  EI_pct:
+    role: preregistered_primary_response
+    modelability_expected: PASS
+    reference_model: main_effects_plus_all_two_way_interactions
+    reconstructed_reference_terms_p_lt_0_05:
+      - {term: 'z1_glycerol', sign: positive, reconstructed_p: 1.9575581e-07}
+      - {term: 'z2_olive_oil', sign: negative, reconstructed_p: 4.0003035e-07}
+      - {term: 'z4_glucose', sign: positive, reconstructed_p: 3.4567338e-07}
+      - {term: 'z1_glycerol:z2_olive_oil', sign: negative, reconstructed_p: 2.8295178e-07}
+      - {term: 'z1_glycerol:z4_glucose', sign: negative, reconstructed_p: 9.5852251e-06}
+      - {term: 'z2_olive_oil:z4_glucose', sign: negative, reconstructed_p: 0.00041005168}
+      - {term: 'z3_hexadecane:z4_glucose', sign: negative, reconstructed_p: 5.2615139e-05}
+  delta_ST_mNm:
+    role: preregistered_secondary_response
+    modelability_expected: PASS
+    reference_model: main_effects_plus_all_two_way_interactions
+    reconstructed_reference_terms_p_lt_0_05:
+      - {term: 'z1_glycerol', sign: positive, reconstructed_p: 0.010224343}
+      - {term: 'z2_olive_oil', sign: negative, reconstructed_p: 0.0012537278}
+      - {term: 'z3_hexadecane', sign: negative, reconstructed_p: 0.00078184891}
+      - {term: 'z4_glucose', sign: positive, reconstructed_p: 2.0439084e-05}
+      - {term: 'z1_glycerol:z4_glucose', sign: negative, reconstructed_p: 0.00023261578}
+      - {term: 'z2_olive_oil:z3_hexadecane', sign: positive, reconstructed_p: 0.0021281513}
+
+validation:
+  primary_cv: {method: repeated_kfold, n_splits: 5, n_repeats: 10}
+  structural_cv:
+    method: repeated_grouped_condition_kfold
+    n_splits: 5
+    n_repeats: 10
+    group: exact_factor_tuple
+    keep_center_replicates_together: true
+  n_synthetic: 140
+  matched_effective_n_for_icd: 19
+  tuning_on_external_outcomes: prohibited
+
+adapter_compatibility:
+  all_core_factors_numeric: true
+  all_factor_supports_explicit: true
+  categorical_encoding_required: false
+  decision: PASS
+
+modelability_gate:
+  source_traceable: true
+  experimental_unit_defined: true
+  support_sufficient: true
+  scientific_relation_identifiable_EI: true
+  scientific_relation_identifiable_delta_ST: true
+  decision: PASS_BOTH_RESPONSES
