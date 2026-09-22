@@ -1,0 +1,11 @@
+PEERFIX EXT-C execution authorization
+Date: 2026-09-22
+Frozen Core: 0d5a73d128fe374c8165f3b84a2412ac9b02cbc1
+Dataset: Fontes et al. 2010 / Yarrowia lipolytica / Table 4 carbon-source 2^4 factorial + 3 center assays
+Primary response: EI_pct
+Secondary response: delta_ST_mNm
+Canonical CSV SHA-256: 41dba19fe743147ab249951c2e388a2f6c0647fa55af7b306e7fe54223f2f5d2
+Preregistration: docs/checkpoints/2026-09-21_EXTC_EXTD_PROSPECTIVE_PREREGISTRATION.md
+Preexecution gate: docs/checkpoints/2026-09-22_EXTC_FONTES_PREEXECUTION_PASS.md
+Adapter: config/external/03_ADAPTER_FONTES_EXT_C.yaml
+Rule: no retuning; execute frozen Core exactly through the existing external-validation logic. Retain all generator outcomes, favorable or unfavorable.
